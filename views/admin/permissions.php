@@ -9,7 +9,7 @@ foreach ($hierarchicalModules as $m) {
     foreach ($m['submodules'] as $s) {
         $totalPossiblePerms += count(array_intersect_key(
             $s['permissions'] ?? [],
-            array_flip(['view', 'create', 'edit', 'delete'])
+            array_flip(['view', 'create', 'edit', 'delete', 'print'])
         ));
     }
 }

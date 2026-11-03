@@ -3180,11 +3180,14 @@ class WhatsappController {
             $damageRecord = Database::fetchOne("SELECT id FROM channel_damages WHERE damage_number = ?", [$dmgNum]);
             $damageRecordId = (int)($damageRecord['id'] ?? 0);
 
+            $stockChannelIds = $this->getWhatsappChannelIds();
+            $stockChannelPlaceholders = implode(',', array_fill(0, count($stockChannelIds), '?'));
             $stockLocation = Database::fetchOne(
                 "SELECT location_id FROM stock_balances
-                 WHERE variant_id = ? AND location_type = 'CHANNEL' AND stock_state = 'AVAILABLE' AND quantity >= ?
+                 WHERE variant_id = ? AND location_type = 'CHANNEL' AND location_id IN ($stockChannelPlaceholders)
+                   AND stock_state = 'AVAILABLE' AND quantity >= ?
                  ORDER BY quantity DESC LIMIT 1",
-                [$vId, (float)$qty]
+                array_merge([$vId], $stockChannelIds, [(float)$qty])
             );
             $movementLocationId = (int)($stockLocation['location_id'] ?? $channelId);
 
@@ -3537,7 +3540,7 @@ class WhatsappController {
         $rawCode = trim($_REQUEST['query'] ?? $_REQUEST['q'] ?? $_REQUEST['code'] ?? $_REQUEST['search'] ?? '');
         $chan = $this->getChannel();
         $channelId = (int)($chan['id'] ?? 3);
-        $chanIds = [1, 3];
+        $chanIds = $this->getWhatsappChannelIds();
 
         if (empty($rawCode)) {
             echo json_encode(['success' => false, 'message' => 'No scan code or search term provided.', 'results' => []]);

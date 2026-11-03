@@ -353,10 +353,18 @@
                                     <!-- Actions -->
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
+                                            <?php if (hasPermission('production_expenses', 'view')): ?>
+                                            <button type="button" class="btn btn-outline-info" title="View Expense Details" onclick='openExpenseReceipt(<?= (int)$e['id'] ?>)'>
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <?php endif; ?>
+
                                             <!-- Print Voucher Button -->
-                                            <button type="button" class="btn btn-outline-secondary" title="View & Print Expense Voucher" onclick='openExpenseReceipt(<?= (int)$e['id'] ?>)'>
+                                            <?php if (hasPermission('production_expenses', 'print')): ?>
+                                            <button type="button" class="btn btn-outline-secondary" title="Print Expense Voucher" onclick='openExpenseReceipt(<?= (int)$e['id'] ?>)'>
                                                 <i class="bi bi-printer"></i>
                                             </button>
+                                            <?php endif; ?>
 
                                             <?php if (hasPermission('production_expenses', 'edit')): ?>
                                             <!-- Edit Button -->
@@ -712,9 +720,11 @@
             </div>
             <div class="modal-footer bg-light py-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                <?php if (hasPermission('production_expenses', 'print')): ?>
                 <button type="button" class="btn btn-dark btn-sm px-3" onclick="printExpenseVoucherArea()">
                     <i class="bi bi-printer me-1"></i> Print Voucher
                 </button>
+                <?php endif; ?>
             </div>
         </div>
     </div>

@@ -1732,7 +1732,9 @@ class ShopController {
         $pendingInwardsCount = 0;
         $totalPendingMissingQty = 0;
         $receivedInwardsCount = 0;
+        $stockedInwardsCount = 0;
         $totalReceivedQty = 0;
+        $totalDamagedQty = 0;
         $totalDispatchedQty = 0;
 
         foreach ($allocations as &$a) {
@@ -1745,19 +1747,30 @@ class ShopController {
             // Received quantities include damaged units; only good units become available shop stock.
             $itemRecvSum = 0;
             $itemDamSum = 0;
+            $isFinalReceipt = in_array($a['status'], ['RECEIVED', 'COMPLETED', 'DELIVERED'], true);
             foreach ($a['items'] as $itemLine) {
-                $itemRecvSum += (int)($itemLine['received_qty'] ?? 0);
-                $itemDamSum += (int)($itemLine['damaged_qty'] ?? 0);
+                $lineReceived = (int)($itemLine['received_qty'] ?? 0);
+                $lineDamaged = (int)($itemLine['damaged_qty'] ?? 0);
+                if ($isFinalReceipt && $lineReceived === 0 && $lineDamaged === 0) {
+                    $lineReceived = (int)($itemLine['dispatched_qty'] > 0 ? $itemLine['dispatched_qty'] : $itemLine['requested_qty']);
+                }
+                $itemRecvSum += $lineReceived;
+                $itemDamSum += $lineDamaged;
             }
             $a['total_received_items_qty'] = $itemRecvSum;
             $a['total_damaged_items_qty'] = $itemDamSum;
             $a['total_good_items_qty'] = max(0, $itemRecvSum - $itemDamSum);
             $a['missing_qty'] = max(0, $qty - $itemRecvSum);
             $totalReceivedQty += $a['total_good_items_qty'];
+            $totalDamagedQty += $itemDamSum;
 
-            if (in_array($a['status'], ['RECEIVED', 'COMPLETED', 'DELIVERED'], true) && $a['missing_qty'] === 0) {
+            if ($itemRecvSum > 0) {
                 $receivedInwardsCount++;
-            } else {
+            }
+            if ($a['total_good_items_qty'] > 0) {
+                $stockedInwardsCount++;
+            }
+            if ($a['missing_qty'] > 0) {
                 $pendingInwardsCount++;
                 $totalPendingMissingQty += $a['missing_qty'];
             }
@@ -1780,7 +1793,9 @@ class ShopController {
             'pendingInwardsCount'    => $pendingInwardsCount,
             'totalPendingMissingQty' => $totalPendingMissingQty,
             'receivedInwardsCount'   => $receivedInwardsCount,
+            'stockedInwardsCount'    => $stockedInwardsCount,
             'totalReceivedQty'       => $totalReceivedQty,
+            'totalDamagedQty'        => $totalDamagedQty,
             'totalDispatchedQty'     => $totalDispatchedQty,
             'breadcrumb'             => [
                 ['label' => 'Shop', 'url' => url('shop/dashboard')],

@@ -285,7 +285,6 @@ function renderChannelKPI(float $amount, float $paid, float $pending, int $count
                    class="btn btn-xs btn-outline-danger shadow-xs py-0.5 px-2" title="Download Warehouse Sales PDF">
                     <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF
                 </button>
-                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -331,7 +330,6 @@ function renderChannelKPI(float $amount, float $paid, float $pending, int $count
                    class="btn btn-xs btn-outline-danger shadow-xs py-0.5 px-2" title="Download Shop POS Sales PDF">
                     <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF
                 </button>
-                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -380,7 +378,6 @@ function renderChannelKPI(float $amount, float $paid, float $pending, int $count
                    class="btn btn-xs btn-outline-danger shadow-xs py-0.5 px-2" title="Download WhatsApp Orders PDF">
                     <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF
                 </button>
-                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -414,7 +411,6 @@ function renderChannelKPI(float $amount, float $paid, float $pending, int $count
                    class="btn btn-xs btn-outline-danger shadow-xs py-0.5 px-2" title="Download Website Orders PDF">
                     <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF
                 </button>
-                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -483,13 +479,8 @@ function renderChannelKPI(float $amount, float $paid, float $pending, int $count
                class="btn btn-sm btn-outline-success">
                 <i class="bi bi-file-earmark-excel me-1"></i>Export Excel (.xlsx)
             </a>
-<<<<<<< HEAD
-            <?php endif; ?>
             <?php if ($canPrintReport): ?>
-            <a href="<?= url('reports/print/sales') ?>?<?= http_build_query($_GET) ?>" 
-=======
             <a href="<?= url('reports/print/sales') ?><?= $salesReportQuery !== '' ? '?' . e($salesReportQuery) : '' ?>"
->>>>>>> 19a3ab52f7a487ea2aca99268cbe8704f75e528e
                target="_blank" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-printer me-1"></i>Print Register
             </a>

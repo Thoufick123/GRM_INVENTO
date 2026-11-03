@@ -66,7 +66,7 @@ $hasMultipleShops = count($shops ?? []) > 1;
 <!-- 1. SUMMARY METRIC CARDS -->
 <!-- ========================================================================= -->
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-4">
+    <div class="col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm border-start border-danger border-4 h-100">
             <div class="card-body">
                 <div class="d-flex align-items-center justify-content-between">
@@ -86,12 +86,12 @@ $hasMultipleShops = count($shops ?? []) > 1;
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-4">
+    <div class="col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm border-start border-success border-4 h-100">
             <div class="card-body">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
-                        <span class="text-muted small fw-bold text-uppercase d-block text-truncate metric-card-title">Received &amp; Stock Credited</span>
+                        <span class="text-muted small fw-bold text-uppercase d-block text-truncate metric-card-title">Received / Processed</span>
                         <h4 class="mb-0 fw-bold text-success mt-1 metric-card-value">
                             <?= number_format($receivedInwardsCount ?? 0) ?> <small class="fs-6 text-muted">Batches</small>
                         </h4>
@@ -106,7 +106,27 @@ $hasMultipleShops = count($shops ?? []) > 1;
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-xl-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm border-start border-warning border-4 h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase d-block text-truncate metric-card-title">Damaged / Quarantined</span>
+                        <h4 class="mb-0 fw-bold text-warning mt-1 metric-card-value">
+                            <?= number_format($totalDamagedQty ?? 0) ?> <small class="fs-6 text-muted">pcs</small>
+                        </h4>
+                        <small class="text-muted fw-semibold mt-1 d-block text-truncate">
+                            <i class="bi bi-shield-exclamation me-1"></i>Not included in sellable shop stock
+                        </small>
+                    </div>
+                    <div class="rounded-circle bg-warning bg-opacity-10 p-2 p-xl-3 text-warning flex-shrink-0 ms-2">
+                        <i class="bi bi-shield-exclamation fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
         <div class="card border-0 shadow-sm border-start border-primary border-4 h-100">
             <div class="card-body">
                 <div class="d-flex align-items-center justify-content-between">
@@ -176,7 +196,7 @@ $hasMultipleShops = count($shops ?? []) > 1;
             <div class="btn-group btn-group-sm" role="group">
                 <button type="button" class="btn btn-outline-secondary active btn-batch-filter" data-filter="all">All (<?= count($allocations ?? []) ?>)</button>
                 <button type="button" class="btn btn-outline-danger btn-batch-filter" data-filter="missing">Missing Only (<?= $pendingInwardsCount ?? 0 ?>)</button>
-                <button type="button" class="btn btn-outline-success btn-batch-filter" data-filter="stocked">Stocked (<?= $receivedInwardsCount ?? 0 ?>)</button>
+                <button type="button" class="btn btn-outline-success btn-batch-filter" data-filter="stocked">Stocked (<?= $stockedInwardsCount ?? 0 ?>)</button>
             </div>
         </div>
     </div>
@@ -200,6 +220,8 @@ $hasMultipleShops = count($shops ?? []) > 1;
                     <div class="col-12 col-md-6 col-lg-6 col-xl-4 col-xxl-3 batch-card-item"
                          data-alloc-id="<?= (int)$a['id'] ?>"
                          data-status="<?= $missingQty > 0 ? 'missing' : 'stocked' ?>"
+                         data-has-missing="<?= $missingQty > 0 ? '1' : '0' ?>"
+                         data-has-stock="<?= (int)($a['total_good_items_qty'] ?? 0) > 0 ? '1' : '0' ?>"
                          data-inward-status="<?= e($a['status']) ?>"
                          data-warehouse-id="<?= (int)($a['warehouse_id'] ?? 0) ?>"
                          data-search="<?= strtolower(e($a['allocation_number'] . ' ' . ($a['outward_number'] ?? '') . ' ' . ($a['vehicle_number'] ?? '') . ' ' . ($a['driver_name'] ?? '') . ' ' . $a['warehouse_name'] . ' ' . $skuSearchTerms)) ?>">
@@ -214,7 +236,7 @@ $hasMultipleShops = count($shops ?? []) > 1;
                                 </div>
                                 <?php if ($isFullyReceived): ?>
                                     <span class="badge bg-success rounded-pill px-2 py-1 fs-8">
-                                        <i class="bi bi-check-circle-fill me-1"></i>Stock Credited
+                                        <i class="bi bi-check-circle-fill me-1"></i>Fully Received
                                     </span>
                                 <?php elseif ($isPartiallyReceived): ?>
                                     <span class="badge bg-warning text-dark rounded-pill px-2 py-1 fs-8">
@@ -453,7 +475,7 @@ $hasMultipleShops = count($shops ?? []) > 1;
                                     <?php elseif (!$isRecv): ?>
                                         <span class="badge bg-warning text-dark batch-status-badge"><i class="bi bi-hourglass-split me-1"></i>Awaiting Shop Inward</span>
                                     <?php else: ?>
-                                        <span class="badge bg-success batch-status-badge"><i class="bi bi-check2-all me-1"></i>Received &amp; Stocked</span>
+                                        <span class="badge bg-success batch-status-badge"><i class="bi bi-check2-all me-1"></i>Received / Processed</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end">
@@ -569,11 +591,12 @@ document.addEventListener('DOMContentLoaded', function() {
         let visibleCount = 0;
 
         batchCardItems.forEach(card => {
-            const status = card.getAttribute('data-status');
             const inwardStatus = card.getAttribute('data-inward-status') || '';
             const searchData = card.getAttribute('data-search') || '';
 
-            const matchesStatus = (currentFilter === 'all') || (currentFilter === status);
+            const matchesStatus = currentFilter === 'all'
+                || (currentFilter === 'missing' && card.getAttribute('data-has-missing') === '1')
+                || (currentFilter === 'stocked' && card.getAttribute('data-has-stock') === '1');
             const matchesSearch = !query || searchData.includes(query);
             const matchesWarehouse = !whId || card.getAttribute('data-warehouse-id') === whId;
             const matchesInwardStatus = !statusVal || inwardStatus === statusVal || (statusVal === 'RECEIVED' && ['COMPLETED', 'DELIVERED'].includes(inwardStatus));

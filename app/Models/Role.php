@@ -452,6 +452,8 @@ class Role {
         foreach ($permissions as $action => $permission) {
             if (isset($columns[$action])) {
                 $columns[$action][$action] = $permission;
+            } elseif ($action === 'print') {
+                $columns['view'][$action] = $permission;
             }
         }
 
