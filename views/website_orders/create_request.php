@@ -104,7 +104,7 @@ function addRequestRow() {
     
     let optionsHtml = '<option value="">-- Select Variant SKU / Product --</option>';
     availableVariants.forEach(v => {
-        optionsHtml += `<option value="${v.id}" data-stock="${v.stock_qty || 0}">${v.product_name} | SKU: ${v.sku} (Stock: ${v.stock_qty || 0} pcs)</option>`;
+        optionsHtml += `<option value="${v.id}" data-stock="${v.stock_qty || 0}">${v.product_name} | ${v.category_name || 'General'} | SKU: ${v.sku} (Stock: ${v.stock_qty || 0} pcs)</option>`;
     });
 
     const tr = document.createElement('tr');

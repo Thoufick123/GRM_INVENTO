@@ -367,10 +367,10 @@ $canProcessReturns = !$isWebsiteReturns || hasPermission('website_returns', 'cre
                                                 <i class="bi bi-arrow-left-right text-success" style="font-size:15px;"></i>
                                             </span>
                                             <strong class="text-dark" style="font-size:14px;">Exchanged Product</strong>
-                                            <span class="ms-auto badge bg-success-subtle text-success" style="font-size:11px;">Size / Color</span>
+                                            <span class="ms-auto badge bg-success-subtle text-success" style="font-size:11px;"><?= $isWebsiteReturns ? 'Available Website Stock' : 'Size / Color' ?></span>
                                         </div>
                                         <p class="text-muted mb-0" style="font-size:12px; line-height:1.45;">
-                                            Exchange for different size or color variant of the same garment.
+                                            <?= $isWebsiteReturns ? 'Exchange for any product with available Website inventory stock.' : 'Exchange for different size or color variant of the same garment.' ?>
                                         </p>
                                     </div>
                                 </div>
@@ -500,12 +500,12 @@ $canProcessReturns = !$isWebsiteReturns || hasPermission('website_returns', 'cre
                             <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill font-monospace px-2.5 py-1" style="font-size:11px;">
-                                        <i class="bi bi-upc-scan me-1"></i><?= $isWebsiteReturns ? 'SCAN SIZE / COLOR REPLACEMENT' : 'SCAN REPLACEMENT PRODUCT' ?>
+                                        <i class="bi bi-upc-scan me-1"></i>SCAN REPLACEMENT PRODUCT
                                     </span>
-                                    <span class="text-muted small"><?= $isWebsiteReturns ? 'Scan the new size/color QR/SKU' : 'Scan any product with available WhatsApp stock' ?></span>
+                                    <span class="text-muted small"><?= $isWebsiteReturns ? 'Scan any product with available Website inventory stock' : 'Scan any product with available WhatsApp stock' ?></span>
                                 </div>
                                 <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1" style="font-size:11px;">
-                                    <?= $isWebsiteReturns ? 'Live Warehouse Stock Available' : 'WhatsApp Stock Only' ?>
+                                    <?= $isWebsiteReturns ? 'Website Inventory Stock Only' : 'WhatsApp Stock Only' ?>
                                 </span>
                             </div>
                             <div class="card-body p-0">
@@ -1285,11 +1285,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(res => {
                 const variant = res && (res.variant || res.data || res.product);
                 if (!res.success || !variant) { alert(res.message || `Product matching "${rawCode}" not found.`); return; }
-                const item = loadedOrderItemsMap[itemId];
-                if (<?= $isWebsiteReturns ? 'true' : 'false' ?> && item && Number(item.product_id) !== Number(variant.product_id)) {
-                    alert(`Scanned product "${variant.product_name || 'Product'}" is not a size/color variant of the returned item.`);
-                    return;
-                }
                 const quantity = parseInt(document.getElementById('qty_' + itemId)?.value || 1, 10) || 1;
                 const available = Number(variant.stock || 0);
                 if (available < quantity) {

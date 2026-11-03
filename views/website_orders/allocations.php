@@ -9,7 +9,7 @@ $currCategory = (int)($filters['category_id'] ?? 0);
 $currSort = $filters['sort'] ?? 'name_asc';
 $currSearch = $filters['search'] ?? '';
 $currProductType = $filters['product_type'] ?? 'normal';
-$canRequestStock = hasPermission('website_inventory', 'adjust');
+$canRequestStock = hasPermission('website_orders', 'create');
 $canAdjustPrice = hasPermission('website_inventory', 'adjust');
 $productTabs = ['normal' => ['Normal Products', 'bi-tag'], 'series' => ['Series Products', 'bi-boxes'], 'complementary' => ['Complementary Products', 'bi-gift-fill']];
 ?>
@@ -27,6 +27,13 @@ $productTabs = ['normal' => ['Normal Products', 'bi-tag'], 'series' => ['Series 
         <h2 class="fw-bold mb-1 text-dark"><i class="bi bi-boxes me-2 text-primary"></i>Website Stock &amp; Inventory</h2>
         <span class="text-muted">Real-time Website stock balances, catalog specifications, and piece-by-piece quarantine.</span>
     </div>
+    <?php if ($canRequestStock): ?>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="<?= url('warehouse/website-orders/requests/create') ?>" class="btn btn-primary rounded-pill px-3 shadow-sm fw-semibold">
+            <i class="bi bi-plus-lg me-1"></i> Request Warehouse Stock
+        </a>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- 5 Dynamic KPI Analysis Cards -->

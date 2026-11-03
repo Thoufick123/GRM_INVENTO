@@ -646,8 +646,8 @@ class Router {
         $this->get('warehouse/website-orders/allocations', 'WebsiteController', 'websiteAllocations', ['AuthMiddleware', ['PermissionMiddleware', 'website_inventory', 'view']]);
         $this->get('warehouse/website-orders/allocations/view/{id}', 'WebsiteController', 'viewWebsiteAllocation', ['AuthMiddleware', ['PermissionMiddleware', 'website_inventory', 'view']]);
         $this->get('warehouse/website-orders/inventory/detail/{id}', 'WebsiteController', 'websiteInventoryDetail', ['AuthMiddleware', ['PermissionMiddleware', 'website_inventory', 'view']]);
-        $this->get('warehouse/website-orders/requests/create', 'WebsiteController', 'createWebsiteStockRequest', ['AuthMiddleware', ['PermissionMiddleware', 'website_inventory', 'adjust']]);
-        $this->post('warehouse/website-orders/requests/store', 'WebsiteController', 'storeWebsiteStockRequest', ['AuthMiddleware', ['PermissionMiddleware', 'website_inventory', 'adjust']]);
+        $this->get('warehouse/website-orders/requests/create', 'WebsiteController', 'createWebsiteStockRequest', ['AuthMiddleware', ['PermissionMiddleware', 'website_orders', 'create']]);
+        $this->post('warehouse/website-orders/requests/store', 'WebsiteController', 'storeWebsiteStockRequest', ['AuthMiddleware', ['PermissionMiddleware', 'website_orders', 'create']]);
         $this->get('warehouse/website-orders/history', 'WebsiteController', 'websiteOrdersHistory', ['AuthMiddleware', ['PermissionMiddleware', 'website_orders', 'view']]);
         
         // Website Damage Management & Outward Dispatch

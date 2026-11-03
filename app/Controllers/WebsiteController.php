@@ -1944,7 +1944,7 @@ class WebsiteController {
      * Create Stock Request Form for Website Channel
      */
     public function createWebsiteStockRequest(): void {
-        if (!hasPermission('website_inventory', 'adjust')) {
+        if (!hasPermission('website_orders', 'create')) {
             Session::flash('error', 'Access denied. You do not have permission to create Website stock requests.');
             Response::redirect(url('warehouse/website-orders/allocations'));
             return;
@@ -1953,12 +1953,15 @@ class WebsiteController {
         $warehouses = function_exists('getScopedWarehouses') ? getScopedWarehouses() : Database::fetchAll("SELECT * FROM warehouses WHERE is_active = 1 ORDER BY name ASC");
         $variants = Database::fetchAll(
             "SELECT pv.id, pv.sku, pv.mrp, pv.selling_price, p.name as product_name,
+                    COALESCE(wc.name, c.name, 'General') as category_name,
                     COALESCE((
                         SELECT SUM(quantity) FROM stock_balances 
                         WHERE variant_id = pv.id AND stock_state = 'AVAILABLE' AND location_type = 'WAREHOUSE'
                     ), 0) as stock_qty
              FROM product_variants pv
              JOIN products p ON pv.product_id = p.id
+             LEFT JOIN warehouse_categories wc ON p.warehouse_category_id = wc.id
+             LEFT JOIN categories c ON p.category_id = c.id
              WHERE pv.is_active = 1
              ORDER BY p.name ASC, pv.sku ASC"
         );
@@ -1979,7 +1982,7 @@ class WebsiteController {
     }
 
     public function storeWebsiteStockRequest(): void {
-        if (!hasPermission('website_inventory', 'adjust')) {
+        if (!hasPermission('website_orders', 'create')) {
             Session::flash('error', 'Access denied. You do not have permission to submit Website stock requests.');
             Response::redirect(url('warehouse/website-orders/allocations'));
             return;
@@ -3681,9 +3684,8 @@ class WebsiteController {
 
             $saleItem = Database::fetchOne(
                 "SELECT si.id, si.variant_id, si.quantity, si.unit_price, si.scanned_qr_codes,
-                        si.qr_code, pv.product_id
+                        si.qr_code
                  FROM sale_items si
-                 JOIN product_variants pv ON pv.id = si.variant_id
                  WHERE si.id = ? AND si.sale_id = ? LIMIT 1",
                 [$saleItemId, $saleId]
             );
@@ -3762,8 +3764,8 @@ class WebsiteController {
                      FROM product_variants WHERE id = ? LIMIT 1",
                     [$swapVariantId]
                 );
-                if (!$replacement || (int)$replacement['is_active'] !== 1 || (int)$replacement['product_id'] !== (int)$saleItem['product_id']) {
-                    Session::flash('error', 'The replacement must be an active size/color variant of the returned product.');
+                if (!$replacement || (int)$replacement['is_active'] !== 1) {
+                    Session::flash('error', 'The replacement must be an active Website inventory product.');
                     Response::redirect(url('warehouse/website-orders/returns'));
                     return;
                 }
