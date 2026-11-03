@@ -73,19 +73,12 @@ $canDeleteCatalog = hasPermission('wh_catalog', 'delete');
 <div class="card border-0 shadow-sm mb-4 bg-white rounded-3">
     <div class="card-body p-3">
         <div class="row g-2 align-items-end">
-            <div class="col-lg-4 col-md-5 col-12">
+            <div class="col-lg-6 col-md-6 col-12">
                 <label class="form-label small fw-semibold text-muted mb-1">Search Category / Subcategory / Style / Attributes</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
                     <input type="text" id="globalCatalogSearch" class="form-control" placeholder="Search by name, code, attribute..." oninput="handleGlobalSearch(this.value)">
                 </div>
-            </div>
-            <div class="col-lg-2 col-md-2 col-6">
-                <label class="form-label small fw-semibold text-muted mb-1">Status</label>
-                <select class="form-select form-select-sm" id="catalogStatusFilter" onchange="applyStatusFilter(this.value)">
-                    <option value="active" selected>Active Only</option>
-                    <option value="all">All Status</option>
-                </select>
             </div>
             <div class="col-lg-2 col-md-2 col-6 d-flex align-items-end gap-1">
                 <button type="button" class="btn btn-sm btn-primary px-3 fw-semibold flex-grow-1" onclick="applyFilters()" style="background:#5551ff;border-color:#5551ff;">
@@ -95,7 +88,7 @@ $canDeleteCatalog = hasPermission('wh_catalog', 'delete');
                     <i class="bi bi-arrow-clockwise"></i>
                 </button>
             </div>
-            <div class="col-lg-2 col-12 d-flex justify-content-lg-end justify-content-start align-items-end mt-2 mt-lg-0">
+            <div class="col-lg-4 col-md-4 col-12 d-flex justify-content-lg-end justify-content-start align-items-end mt-2 mt-lg-0">
                 <!-- VIEW MODE SWITCHER: Hierarchy List vs Cascading Columns -->
                 <div class="btn-group btn-group-sm p-1 bg-light rounded-pill border" role="group" aria-label="Catalog View Mode">
                     <button type="button" class="btn btn-sm rounded-pill px-3 fw-semibold active btn-primary shadow-sm" id="btnToggleList" onclick="switchCatalogView('list')">
@@ -904,7 +897,6 @@ const canDeleteCatalog = <?= json_encode($canDeleteCatalog) ?>;
 let categoryTreeData = [];
 let currentViewMode = localStorage.getItem('grm_catalog_view_mode') || 'list'; // 'list' or 'columns'
 let currentSearchTerm = '';
-let currentStatusFilter = 'active';
 let currentTypeFilter = 'all';
 
 // Selected state for columns view
@@ -961,11 +953,6 @@ function handleGlobalSearch(term) {
     applyFilters();
 }
 
-function applyStatusFilter(status) {
-    currentStatusFilter = status;
-    applyFilters();
-}
-
 function applyTypeFilter(type) {
     currentTypeFilter = type;
     applyFilters();
@@ -980,10 +967,8 @@ function applyFilters() {
 
 function resetFilters() {
     currentSearchTerm = '';
-    currentStatusFilter = 'active';
     currentTypeFilter = 'all';
     const sInput = document.getElementById('globalCatalogSearch'); if (sInput) sInput.value = '';
-    const stSelect = document.getElementById('catalogStatusFilter'); if (stSelect) stSelect.value = 'active';
     const tpSelect = document.getElementById('catalogTypeFilter'); if (tpSelect) tpSelect.value = 'all';
     ['filterCatInput', 'filterSubInput', 'filterSubSubInput'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';

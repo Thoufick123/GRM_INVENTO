@@ -22,39 +22,6 @@
         </div>
     </div>
 
-    <!-- Quick Navigation / Segment Tabs -->
-    <div class="card border-0 shadow-sm mb-4 bg-light">
-        <div class="card-body p-2">
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                <span class="text-muted small fw-bold ms-2 me-1 text-uppercase"><i class="bi bi-funnel me-1"></i>Quick View:</span>
-                
-                <a href="<?= url('production/expenses') ?>" class="btn btn-sm <?= (empty($productionUnit) && empty($category)) ? 'btn-dark shadow-sm' : 'btn-outline-secondary bg-white' ?>">
-                    <i class="bi bi-grid me-1"></i>All Expenses
-                </a>
-
-                <a href="<?= url('production/expenses?production_unit=PRODUCTION_1') ?>" class="btn btn-sm <?= $productionUnit === 'PRODUCTION_1' ? 'btn-primary shadow-sm' : 'btn-outline-primary bg-white' ?>">
-                    <i class="bi bi-building me-1"></i>🏭 Production Unit 1
-                </a>
-
-                <a href="<?= url('production/expenses?production_unit=PRODUCTION_2') ?>" class="btn btn-sm <?= $productionUnit === 'PRODUCTION_2' ? 'btn-info text-white shadow-sm' : 'btn-outline-info bg-white' ?>">
-                    <i class="bi bi-buildings me-1"></i>🏭 Production Unit 2
-                </a>
-
-                <a href="<?= url('production/expenses?category=MACHINERY_ASSET') ?>" class="btn btn-sm <?= $category === 'MACHINERY_ASSET' ? 'btn-warning text-dark shadow-sm' : 'btn-outline-warning text-dark bg-white' ?>">
-                    <i class="bi bi-gear-wide-connected me-1"></i>⚙️ Machinery &amp; Equipment
-                </a>
-
-                <a href="<?= url('production/expenses?category=SEWING_MATERIALS') ?>" class="btn btn-sm <?= $category === 'SEWING_MATERIALS' ? 'btn-success shadow-sm' : 'btn-outline-success bg-white' ?>">
-                    <i class="bi bi-thread me-1"></i>🧵 Sewing Materials (Threads, Zips, Needles)
-                </a>
-
-                <a href="<?= url('production/expenses?category=MAINTENANCE_REPAIR') ?>" class="btn btn-sm <?= $category === 'MAINTENANCE_REPAIR' ? 'btn-danger shadow-sm' : 'btn-outline-danger bg-white' ?>">
-                    <i class="bi bi-tools me-1"></i>🔧 Maintenance &amp; Servicing
-                </a>
-            </div>
-        </div>
-    </div>
-
     <!-- KPI Summary Analytics Cards -->
     <div class="row g-3 mb-4">
         <!-- 1. Total Production Expense Spend -->

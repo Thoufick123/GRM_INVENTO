@@ -303,8 +303,11 @@
                                     <!-- Actions -->
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-info" title="View Wastage Sale Details" aria-label="View Wastage Sale Details" onclick="openWastageReceipt(<?= (int)$s['id'] ?>)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
                                             <!-- Print Receipt Button -->
-                                            <button type="button" class="btn btn-outline-secondary" title="View & Print Sale Receipt" onclick='openWastageReceipt(<?= (int)$s['id'] ?>)'>
+                                            <button type="button" class="btn btn-outline-secondary" title="Print Sale Receipt" aria-label="Print Sale Receipt" onclick='openWastageReceipt(<?= (int)$s['id'] ?>)'>
                                                 <i class="bi bi-printer"></i>
                                             </button>
 
