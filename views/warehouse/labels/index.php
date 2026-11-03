@@ -908,20 +908,20 @@ if ($currentSourceType === 'po' || $currentSourceType === 'tp_purchase') {
 }
 
 if ($isViewingExisting && $selectedVariantId && $activeVar) {
-    $existingQrCodes = Database::fetchAll(
-        "SELECT qr_code, inwarded_at
-         FROM warehouse_qr_codes
-         WHERE variant_id = ?
-         ORDER BY created_at ASC, id ASC",
-        [(int)$selectedVariantId]
-    );
-    $generatedItems = [];
-
     $activeCategoryType = strtoupper($activeVar['warehouse_category_type'] ?? '');
     $isComp = !empty($activeVar['is_complementary']) || !empty($activeVar['product_is_comp']) || $activeCategoryType === 'COMPLEMENTARY';
     $isSeries = strtoupper($activeVar['qr_type'] ?? '') === 'SERIES_BATCH'
         || strtoupper($activeVar['qr_type'] ?? '') === 'SERIES'
         || $activeCategoryType === 'SERIES';
+    $existingQrCodes = Database::fetchAll(
+        "SELECT qr_code, inwarded_at
+         FROM warehouse_qr_codes
+         WHERE variant_id = ?
+         ORDER BY (inwarded_at IS NOT NULL) DESC, created_at ASC, id ASC" . (($isComp || $isSeries) ? " LIMIT 1" : ""),
+        [(int)$selectedVariantId]
+    );
+    $generatedItems = [];
+
     $brandOrSeller = !empty($activeVar['brand_name']) && $activeVar['brand_name'] !== 'Third-Party Brand'
         ? $activeVar['brand_name']
         : (!empty($activeVar['seller_company']) ? $activeVar['seller_company'] : (!empty($activeVar['seller_name']) ? $activeVar['seller_name'] : 'GRM CLASSIC'));
@@ -978,6 +978,27 @@ if (!empty($generatedItems) && !$isViewingExisting) {
             $tagCode = strtoupper((string)($generatedItem['tag_code'] ?? ''));
             if ($variantId <= 0 || $qrPrefix === '' || !preg_match('/^' . preg_quote($qrPrefix, '/') . '\d{4}(\d+)$/i', $tagCode, $sequenceMatch)) {
                 throw new RuntimeException('Unable to reserve a generated warehouse QR code because its product or sequence is invalid.');
+            }
+
+            if (!empty($generatedItem['is_series'])) {
+                Database::fetchOne("SELECT id FROM product_variants WHERE id = ? FOR UPDATE", [$variantId]);
+                $savedPackQr = Database::fetchOne(
+                    "SELECT qr_code, inwarded_at
+                     FROM warehouse_qr_codes
+                     WHERE variant_id = ?
+                     ORDER BY (inwarded_at IS NOT NULL) DESC, created_at ASC, id ASC
+                     LIMIT 1",
+                    [$variantId]
+                );
+                if ($savedPackQr) {
+                    $generatedItem['tag_code'] = $savedPackQr['qr_code'];
+                    $generatedItem['qr_payload'] = $savedPackQr['qr_code'];
+                    $generatedItem['is_inwarded'] = !empty($savedPackQr['inwarded_at']);
+                    $generatedItem['is_saved_qr'] = true;
+                    $generatedItem['series_start_code'] = $savedPackQr['qr_code'];
+                    $generatedItem['series_end_code'] = $savedPackQr['qr_code'];
+                    continue;
+                }
             }
 
             if (!isset($nextSequenceByPrefix[$qrPrefix])) {
@@ -2179,15 +2200,20 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
                                 <?php if (!empty($item['is_series'])): ?>
                                     <div class="d-flex align-items-center gap-2">
                                         <?php if (!$isViewingExisting): ?>
-                                        <input type="checkbox" class="form-check-input piece-select-chk mt-0" id="chk-piece-<?= $index ?>" data-index="<?= $index ?>" onchange="onPieceCheckChanged(<?= $index ?>)" style="cursor: pointer;">
+                                        <input type="checkbox" class="form-check-input piece-select-chk mt-0" id="chk-piece-<?= $index ?>" data-index="<?= $index ?>" onchange="onPieceCheckChanged(<?= $index ?>)" style="cursor: pointer;" <?= !empty($item['is_inwarded']) ? 'disabled' : '' ?>>
                                         <?php endif; ?>
                                         <span class="badge bg-dark text-white font-monospace piece-label-badge" style="font-size: 0.68rem;"><i class="bi bi-boxes me-1"></i>Master Pack (<?= $item['pack_quantity'] ?> Pcs)</span>
                                     </div>
                                     <span class="badge bg-purple text-white" style="font-size: 0.68rem; background-color: #6f42c1 !important;"><i class="bi bi-qr-code me-1"></i><?= !empty($item['is_complementary']) ? 'Complementary Pack QR' : 'Series QR' ?></span>
+                                    <?php if (!empty($item['is_inwarded'])): ?>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.68rem;">Inwarded QR</span>
+                                    <?php elseif (!empty($item['is_saved_qr'])): ?>
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.68rem;">Saved QR — Not Inwarded</span>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <div class="d-flex align-items-center gap-2">
                                         <?php if (!$isViewingExisting): ?>
-                                        <input type="checkbox" class="form-check-input piece-select-chk mt-0" id="chk-piece-<?= $index ?>" data-index="<?= $index ?>" onchange="onPieceCheckChanged(<?= $index ?>)" title="Select this QR sticker">
+                                        <input type="checkbox" class="form-check-input piece-select-chk mt-0" id="chk-piece-<?= $index ?>" data-index="<?= $index ?>" onchange="onPieceCheckChanged(<?= $index ?>)" title="Select this QR sticker" <?= !empty($item['is_inwarded']) ? 'disabled' : '' ?>>
                                         <?php endif; ?>
                                         <label for="chk-piece-<?= $index ?>" class="badge bg-light text-dark border border-secondary-subtle font-monospace mb-0 user-select-none piece-label-badge" style="cursor: pointer;">
                                             Piece #<?= $item['piece_no'] ?> of <?= $item['total_count'] ?>
@@ -2195,7 +2221,9 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
                                     </div>
                                     <?php if (!empty($item['is_adjustment'])): ?>
                                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.68rem;"><i class="bi bi-tools me-1"></i>Adjustment</span>
-                                    <?php elseif ($isViewingExisting): ?>
+                                    <?php elseif (!empty($item['is_inwarded'])): ?>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.68rem;">Inwarded QR</span>
+                                    <?php elseif ($isViewingExisting || !empty($item['is_saved_qr'])): ?>
                                         <span class="badge <?= !empty($item['is_inwarded']) ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' ?>" style="font-size: 0.68rem;">
                                             <?= !empty($item['is_inwarded']) ? 'Inwarded QR' : 'Saved QR — Not Inwarded' ?>
                                         </span>
