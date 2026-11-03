@@ -293,25 +293,25 @@
 
                                         <!-- Action (Print Label / Report Damage / Delete Roll) -->
                                         <td class="text-center">
-                                            <div class="btn-group btn-group-sm">
-                                                <button type="button" class="btn btn-outline-dark py-0 px-2" title="Preview & Print Labels for Roll <?= e($r['roll_number']) ?>" onclick="openSingleRollLabelModal(<?= (int)$r['id'] ?>, '<?= e(addslashes($r['roll_number'])) ?>')">`n                                                    <i class="bi bi-qr-code"></i>`n                                                </button>`n                                                <button type="button" class="btn btn-outline-success py-0 px-2" title="Generate extra continuation label for Roll <?= e($r['roll_number']) ?>" onclick="promptAddExtraRollLabel(<?= (int)$r['id'] ?>, '<?= e(addslashes($r['roll_number'])) ?>', '<?= e(addslashes($r['end_code'] ?? '')) ?>', <?= (int)$r['quantity'] ?>)">`n                                                    <i class="bi bi-plus-circle"></i>
+                                            <div class="d-inline-flex align-items-center justify-content-center gap-1">
+                                                <button type="button" class="btn btn-sm btn-outline-dark" title="Preview or print labels for roll <?= e($r['roll_number']) ?>" aria-label="Preview or print labels for roll <?= e($r['roll_number']) ?>" onclick="openSingleRollLabelModal(<?= (int)$r['id'] ?>, '<?= e(addslashes($r['roll_number'])) ?>')">
                                                     <i class="bi bi-qr-code"></i>
                                                 </button>
-                                                <button type="button" class="btn btn-outline-success py-0 px-2" title="Generate extra continuation label for Roll <?= e($r['roll_number']) ?>" onclick="promptAddExtraRollLabel(<?= (int)$r['id'] ?>, '<?= e(addslashes($r['roll_number'])) ?>', '<?= e(addslashes($r['end_code'] ?? '')) ?>', <?= (int)$r['quantity'] ?>)">
-                                                    <i class="bi bi-plus-circle"></i>
+                                                <button type="button" class="btn btn-sm btn-outline-success" title="Add continuation label for roll <?= e($r['roll_number']) ?>" aria-label="Add continuation label for roll <?= e($r['roll_number']) ?>" onclick="promptAddExtraRollLabel(<?= (int)$r['id'] ?>, '<?= e(addslashes($r['roll_number'])) ?>', '<?= e(addslashes($r['end_code'] ?? '')) ?>', <?= (int)$r['quantity'] ?>)">
+                                                    <i class="bi bi-plus-lg"></i>
                                                 </button>
-                                                <button type="button" class="btn btn-outline-warning py-0 px-2" title="Report Damage / Return to Supplier" onclick='openSupplierRollDamageModal(<?= json_encode($r) ?>)'>
+                                                <button type="button" class="btn btn-sm btn-outline-warning" title="Report damage or return roll <?= e($r['roll_number']) ?> to supplier" aria-label="Report damage or return roll <?= e($r['roll_number']) ?> to supplier" onclick='openSupplierRollDamageModal(<?= json_encode($r) ?>)'>
                                                     <i class="bi bi-exclamation-triangle"></i>
                                                 </button>
                                                 <?php if ($usedQty === 0 && empty($r['damaged_weight'])): ?>
                                                     <form method="POST" action="<?= url('production/sellers/delete-roll/' . $r['id']) ?>" class="d-inline" onsubmit="return confirm('Are you sure you want to delete Roll \'<?= e(addslashes($r['roll_number'])) ?>\'?');">
                                                         <?= CSRF::field() ?>
-                                                        <button type="submit" class="btn btn-outline-danger py-0 px-2" title="Delete Fabric Roll">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete roll <?= e($r['roll_number']) ?>" aria-label="Delete roll <?= e($r['roll_number']) ?>">
                                                             <i class="bi bi-trash"></i>
                                                         </button>
                                                     </form>
                                                 <?php else: ?>
-                                                    <button type="button" class="btn btn-light text-muted py-0 px-2" title="Cannot delete: roll is assigned in production or has logged damages" disabled>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Cannot delete: roll is assigned in production or has logged damages" aria-label="Roll cannot be deleted" disabled>
                                                         <i class="bi bi-lock-fill"></i>
                                                     </button>
                                                 <?php endif; ?>

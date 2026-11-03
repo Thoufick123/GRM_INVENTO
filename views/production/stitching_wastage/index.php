@@ -310,6 +310,9 @@
                                     <!-- Actions -->
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-info" title="View stitching wastage sale details" onclick="openStitchingWastageReceipt(<?= (int)$s['id'] ?>)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
                                             <!-- Print Receipt Button -->
                                             <button type="button" class="btn btn-outline-secondary" title="View & Print Sale Voucher" onclick='openStitchingWastageReceipt(<?= (int)$s['id'] ?>)'>
                                                 <i class="bi bi-printer"></i>

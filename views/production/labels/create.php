@@ -358,13 +358,17 @@
                         <small class="text-muted">Formatted for thermal sticker roll (40mm × 22mm) or A4 sticker sheet printing</small>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="btn-group btn-group-sm no-print" role="group" aria-label="Select QR labels to print">
+                            <button type="button" class="btn btn-outline-primary" onclick="setAllQRStickersSelected(true)">Select All</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="setAllQRStickersSelected(false)">Clear</button>
+                        </div>
                         <div class="input-group input-group-sm" style="width: 280px;">
                             <input type="text" id="deleteLabelInput" class="form-control border-danger-subtle" placeholder="Type Label Code (e.g. WMF92605)..." onkeyup="if(event.key==='Enter') removeLabelByCode()">
                             <button type="button" class="btn btn-outline-danger fw-semibold" onclick="removeLabelByCode()">
                                 <i class="bi bi-trash me-1"></i>Delete Label
                             </button>
                         </div>
-                        <span class="badge bg-primary-subtle text-primary border fs-7 px-3 py-2" id="printableCountBadge">0 Stickers</span>
+                        <span class="badge bg-primary-subtle text-primary border fs-7 px-3 py-2" id="printableCountBadge">0 / 0 Selected</span>
                         <button type="button" class="btn btn-success fw-semibold shadow-sm" onclick="printQRStickersDirectly()">
                             <i class="bi bi-printer-fill me-1"></i> Print QR Stickers Now
                         </button>
@@ -1476,11 +1480,20 @@ function removeSingleStickerCard(btn) {
 }
 
 function updatePrintModalSummary() {
-    const remaining = document.querySelectorAll('#qrStickersGrid .col').length;
+    const grid = document.getElementById('qrStickersGrid');
+    const total = grid ? grid.querySelectorAll('.qr-sticker-select').length : 0;
+    const selected = grid ? grid.querySelectorAll('.qr-sticker-select:checked').length : 0;
     const summaryEl = document.getElementById('printableCountBadge');
     if (summaryEl) {
-        summaryEl.textContent = `${remaining} Stickers`;
+        summaryEl.textContent = `${selected} / ${total} Selected`;
     }
+}
+
+function setAllQRStickersSelected(selected) {
+    document.querySelectorAll('#qrStickersGrid .qr-sticker-select').forEach(input => {
+        input.checked = selected;
+    });
+    updatePrintModalSummary();
 }
 
 function openQRPrintModal() {
@@ -1518,6 +1531,7 @@ function openQRPrintModal() {
             col.className = 'col';
             col.innerHTML = `
                 <div class="p-2 border rounded bg-white shadow-sm qr-sticker-card position-relative">
+                    <input type="checkbox" class="form-check-input position-absolute top-0 start-0 m-2 no-print qr-sticker-select" checked onchange="updatePrintModalSummary()" aria-label="Select this QR sticker to print" title="Select this QR sticker to print" style="z-index: 10;">
                     <button type="button" class="btn-close position-absolute top-0 end-0 m-1 no-print" style="font-size: 0.65rem; z-index: 10; opacity: 0.8;" onclick="removeSingleStickerCard(this)" title="Remove this label"></button>
                     <div class="d-flex align-items-start gap-2">
                         <div class="text-center flex-shrink-0">
@@ -1559,6 +1573,9 @@ function printQRStickersDirectly() {
     const batchLabels = [];
 
     cols.forEach(col => {
+        const selected = col.querySelector('.qr-sticker-select');
+        if (selected && !selected.checked) return;
+
         const skuEl = col.querySelector('.lbl-sku');
         const mrpEl = col.querySelector('.lbl-mrp');
         const discEl = col.querySelector('.lbl-disc');
@@ -1578,6 +1595,11 @@ function printQRStickersDirectly() {
             quantity: 1
         });
     });
+
+    if (batchLabels.length === 0) {
+        showPrintToast('Select at least one QR sticker to print.', 'warning');
+        return;
+    }
 
     // Directly print batch TSPL to TSC TE244 without browser print dialog
     printLabel(batchLabels);

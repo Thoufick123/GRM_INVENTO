@@ -342,13 +342,17 @@
                         <small class="text-muted">Formatted for thermal sticker roll (40mm × 22mm) or A4 sticker sheet printing</small>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="btn-group btn-group-sm no-print" role="group" aria-label="Select QR labels to print">
+                            <button type="button" class="btn btn-outline-primary" onclick="setAllQRStickersSelected(true)">Select All</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="setAllQRStickersSelected(false)">Clear</button>
+                        </div>
                         <div class="input-group input-group-sm" style="width: 280px;">
                             <input type="text" id="deleteLabelInput" class="form-control border-danger-subtle" placeholder="Type Label Code (e.g. WMF92605)..." onkeyup="if(event.key==='Enter') removeLabelByCode()">
                             <button type="button" class="btn btn-outline-danger fw-semibold" onclick="removeLabelByCode()">
                                 <i class="bi bi-trash me-1"></i>Delete Label
                             </button>
                         </div>
-                        <span class="badge bg-primary-subtle text-primary border fs-7 px-3 py-2" id="printableCountBadge">0 Stickers</span>
+                        <span class="badge bg-primary-subtle text-primary border fs-7 px-3 py-2" id="printableCountBadge">0 / 0 Selected</span>
                         <button type="button" class="btn btn-success fw-semibold shadow-sm" onclick="printQRStickersDirectly()">
                             <i class="bi bi-printer-fill me-1"></i> Print QR Stickers Now
                         </button>
@@ -1351,6 +1355,7 @@ function openQRPrintModal() {
 
             colDiv.innerHTML = `
                 <div class="card h-100 shadow-sm border p-2 bg-white qr-sticker-card position-relative" id="${cardId}">
+                    <input type="checkbox" class="form-check-input position-absolute top-0 start-0 m-2 no-print qr-sticker-select" checked onchange="updatePrintModalSummary()" aria-label="Select this QR sticker to print" title="Select this QR sticker to print" style="z-index: 10;">
                     <button type="button" class="btn-close position-absolute top-0 end-0 m-1 no-print" style="font-size: 0.65rem; z-index: 10; opacity: 0.8;" onclick="removeSingleStickerCard(this)" title="Remove this label"></button>
                     <div class="d-flex align-items-start gap-2">
                         <div class="text-center flex-shrink-0" style="width: 75px;">
@@ -1381,11 +1386,19 @@ function openQRPrintModal() {
 function updatePrintModalSummary() {
     const grid = document.getElementById('qrStickersGrid');
     if (!grid) return;
-    const stickers = grid.querySelectorAll('.col');
+    const total = grid.querySelectorAll('.qr-sticker-select').length;
+    const selected = grid.querySelectorAll('.qr-sticker-select:checked').length;
     const badge = document.getElementById('printableCountBadge');
     if (badge) {
-        badge.textContent = `${stickers.length} Stickers Ready`;
+        badge.textContent = `${selected} / ${total} Selected`;
     }
+}
+
+function setAllQRStickersSelected(selected) {
+    document.querySelectorAll('#qrStickersGrid .qr-sticker-select').forEach(input => {
+        input.checked = selected;
+    });
+    updatePrintModalSummary();
 }
 
 function removeSingleStickerCard(btn) {
@@ -1618,55 +1631,37 @@ async function savePrinterSettings() {
 }
 
 async function printQRStickersDirectly() {
+    const grid = document.getElementById('qrStickersGrid');
+    const selectedCards = grid ? Array.from(grid.querySelectorAll('.col')).filter(col => {
+        const checkbox = col.querySelector('.qr-sticker-select');
+        return !checkbox || checkbox.checked;
+    }) : [];
+
+    if (selectedCards.length === 0) {
+        showPrintToast('Select at least one QR sticker to print.', 'warning');
+        return;
+    }
+
+    const labelPayloads = selectedCards.map(col => {
+        const sku = col.querySelector('.lbl-sku')?.textContent.trim() || 'SKU';
+        const basePrice = col.querySelector('.lbl-mrp')?.textContent.replace('MRP: ₹', '').trim() || '0.00';
+        const discountPrice = col.querySelector('.lbl-disc')?.textContent.replace('Disc: ₹', '').trim() || '0.00';
+        const damageCode = col.querySelector('.lbl-damage-code')?.textContent.trim() || sku;
+
+        return {
+            sku,
+            basePrice,
+            discountPrice,
+            damageCode,
+            title: 'GRM WAREHOUSE',
+            quantity: 1
+        };
+    });
+
     const modalEl = document.getElementById('qrPrintModal');
     if (modalEl && window.bootstrap && bootstrap.Modal) {
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
-    }
-
-    if (!currentVariantItems || currentVariantItems.length === 0) {
-        showPrintToast('No labels to print.', 'warning');
-        return;
-    }
-
-    let globalSeq = 1;
-    let labelPayloads = [];
-
-    currentVariantItems.forEach((it, vIdx) => {
-        const reqInp = document.querySelectorAll('.label-req-input')[vIdx];
-        const reqQty = reqInp ? (parseInt(reqInp.value) || 0) : (parseInt(it.required_qty) || 0);
-        if (reqQty <= 0) return;
-
-        const sizeName = it.size_name || it.display_size || 'Standard';
-        const colorName = it.color_name || it.display_color || 'Assorted';
-        const sku = it.sku || (sizeName + '-' + colorName);
-        const basePrice = parseFloat(it.base_price || it.variant_mrp || 0);
-        const discountPrice = parseFloat(it.discount_price || it.variant_selling_price || 0);
-
-        let itemCatalogHierarchy = it.catalog_hierarchy || '';
-        if (!itemCatalogHierarchy) {
-            const hParts = [it.category_name, it.subcategory_name, it.sub_subcategory_name].filter(Boolean);
-            itemCatalogHierarchy = hParts.length > 0 ? hParts.join(' › ') : currentCatalogHierarchy;
-        }
-
-        for (let q = 1; q <= reqQty; q++) {
-            const damageCode = getLabelCode(globalSeq, itemCatalogHierarchy, it);
-            globalSeq++;
-
-            labelPayloads.push({
-                sku: sku,
-                basePrice: basePrice.toFixed(2),
-                discountPrice: discountPrice.toFixed(2),
-                damageCode: damageCode,
-                title: "GRM WAREHOUSE",
-                quantity: 1
-            });
-        }
-    });
-
-    if (labelPayloads.length === 0) {
-        showPrintToast('No labels with required quantity > 0.', 'warning');
-        return;
     }
 
     showPrintToast(`Sending ${labelPayloads.length} QR stickers directly to TSC TE244...`, 'info');

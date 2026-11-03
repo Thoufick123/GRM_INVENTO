@@ -214,7 +214,7 @@
                 <div class="d-flex align-items-start justify-content-between mb-3">
                     <div>
                         <div class="d-flex align-items-center gap-2 mb-1">
-                            <span class="badge bg-<?= $colorClass ?> bg-opacity-15 text-<?= $colorClass ?> border border-<?= $colorClass ?> border-opacity-25 px-3 py-2 fs-6 fw-bold">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6 fw-bold text-nowrap">
                                 <i class="bi bi-patch-check-fill me-1"></i>QC Batch #<?= $batch['qc_batch_id'] ?>
                             </span>
                             <?php if ($stockStatus === 'FULLY_OUTWARDED'): ?>

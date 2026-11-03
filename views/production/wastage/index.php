@@ -913,7 +913,7 @@ function onNewWeightChange() {
     } else {
         document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ₹${r.toFixed(2)}/kg = ₹0.00`;
     }
-    syncNewPaidAmount();
+    autoCheckNewPaymentStatus();
 }
 
 function onNewRateChange() {
@@ -922,7 +922,7 @@ function onNewRateChange() {
     const total = w * r;
     document.getElementById('newTotalAmount').value = total > 0 ? total.toFixed(2) : '';
     document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ₹${r.toFixed(2)}/kg = ₹${total.toFixed(2)}`;
-    syncNewPaidAmount();
+    autoCheckNewPaymentStatus();
 }
 
 function onNewTotalChange() {
@@ -934,15 +934,6 @@ function onNewTotalChange() {
         document.getElementById('newCalcPreview').textContent = `Calculated: ${w.toFixed(2)} kg × ₹${rate.toFixed(2)}/kg = ₹${t.toFixed(2)}`;
     } else {
         document.getElementById('newCalcPreview').textContent = `Total Price Entered: ₹${t.toFixed(2)}`;
-    }
-    syncNewPaidAmount();
-}
-
-function syncNewPaidAmount() {
-    const total = parseFloat(document.getElementById('newTotalAmount').value) || 0;
-    const paidInput = document.getElementById('newPaidAmount');
-    if (!paidInput.value || parseFloat(paidInput.value) === 0) {
-        paidInput.value = total > 0 ? total.toFixed(2) : '0.00';
     }
     autoCheckNewPaymentStatus();
 }

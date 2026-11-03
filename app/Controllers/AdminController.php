@@ -224,6 +224,8 @@ class AdminController {
             ],
             'staff'        => $staff,
             'assignments'  => $assignments,
+            'hierarchicalModules' => Role::getHierarchicalPermissions(),
+            'staffPermissions'    => User::getPermissionIds((int)$staff['id']),
         ]);
     }
 
