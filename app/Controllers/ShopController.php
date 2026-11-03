@@ -1637,9 +1637,14 @@ class ShopController {
                 JOIN warehouses w ON wa.warehouse_id = w.id
                 LEFT JOIN allocation_outwards ao ON wa.id = ao.allocation_id
                 LEFT JOIN users u_prep ON wa.requested_by = u_prep.id
-                WHERE (wa.shop_id = ? OR (wa.destination_type = 'SHOP' AND wa.destination_id = ?))
+                WHERE COALESCE(
+                          NULLIF(ao.shop_id, 0),
+                          CASE WHEN ao.destination_type = 'SHOP' THEN NULLIF(ao.destination_id, 0) END,
+                          NULLIF(wa.shop_id, 0),
+                          CASE WHEN wa.destination_type = 'SHOP' THEN NULLIF(wa.destination_id, 0) END
+                      ) = ?
                   AND wa.status NOT IN ('REQUESTED', 'PENDING', 'CANCELLED', 'REJECTED')";
-        $params = [$shopId, $shopId];
+        $params = [$shopId];
 
         if (!empty($warehouseId)) {
             $sql .= " AND wa.warehouse_id = ?";
