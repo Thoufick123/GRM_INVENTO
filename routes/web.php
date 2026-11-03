@@ -121,6 +121,7 @@ class Router {
         $this->get('admin/staff/check-phone', 'AdminController', 'checkPhoneAvailability', ['AuthMiddleware']);
         $this->get('admin/staff/create', 'AdminController', 'createStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'create']]);
         $this->post('admin/staff/store', 'AdminController', 'storeStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'create']]);
+        $this->get('admin/staff/view/{id}', 'AdminController', 'viewStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'view']]);
         $this->get('admin/staff/edit/{id}', 'AdminController', 'editStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'edit']]);
         $this->post('admin/staff/update/{id}', 'AdminController', 'updateStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'edit']]);
         $this->post('admin/staff/toggle/{id}', 'AdminController', 'toggleStaff', ['AuthMiddleware', ['PermissionMiddleware', 'staff', 'edit']]);
@@ -369,6 +370,7 @@ class Router {
 
         // Cutting
         $this->get('production/cutting', 'ProductionController', 'cuttingList', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'view']]);
+        $this->get('production/cutting/view/{id}', 'ProductionController', 'viewCuttingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'view']]);
         $this->get('production/cutting/create', 'ProductionController', 'createCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
         $this->post('production/cutting/store', 'ProductionController', 'storeCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'create']]);
         $this->get('production/cutting/edit/{id}', 'ProductionController', 'editCutting', ['AuthMiddleware', ['PermissionMiddleware', 'cutting', 'edit']]);
@@ -385,6 +387,7 @@ class Router {
 
         // Stitching
         $this->get('production/stitching', 'ProductionController', 'stitchingList', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'view']]);
+        $this->get('production/stitching/view/{id}', 'ProductionController', 'viewStitchingBatch', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'view']]);
         $this->get('production/stitching/create', 'ProductionController', 'createStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'create']]);
         $this->post('production/stitching/store', 'ProductionController', 'storeStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'create']]);
         $this->get('production/stitching/edit/{id}', 'ProductionController', 'editStitching', ['AuthMiddleware', ['PermissionMiddleware', 'stitching', 'edit']]);
@@ -409,6 +412,7 @@ class Router {
 
         // Label
         $this->get('production/labels', 'ProductionController', 'labelList', ['AuthMiddleware', ['PermissionMiddleware', 'labels', 'view']]);
+        $this->get('production/labels/view/{id}', 'ProductionController', 'viewLabelBatch', ['AuthMiddleware', ['PermissionMiddleware', 'labels', 'view']]);
         $this->get('production/labels/create', 'ProductionController', 'createLabel', ['AuthMiddleware', ['PermissionMiddleware', 'labels', 'create']]);
         $this->post('production/labels/store', 'ProductionController', 'storeLabel', ['AuthMiddleware', ['PermissionMiddleware', 'labels', 'create']]);
         $this->get('production/labels/edit/{id}', 'ProductionController', 'editLabel', ['AuthMiddleware', ['PermissionMiddleware', 'labels', 'edit']]);
@@ -417,6 +421,7 @@ class Router {
 
         // QC
         $this->get('production/qc', 'ProductionController', 'qcList', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'view']]);
+        $this->get('production/qc/view/{id}', 'ProductionController', 'viewQCBatch', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'view']]);
         $this->get('production/qc/create', 'ProductionController', 'createQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'create']]);
         $this->post('production/qc/store', 'ProductionController', 'storeQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'create']]);
         $this->get('production/qc/inspect/{id}', 'ProductionController', 'inspectQC', ['AuthMiddleware', ['PermissionMiddleware', 'qc', 'edit']]);

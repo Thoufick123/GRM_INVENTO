@@ -200,6 +200,33 @@ class AdminController {
         ]);
     }
 
+    public function viewStaff(string $id): void {
+        $staff = User::findById((int)$id);
+        if (!$staff || (int)$staff['role_id'] === 1 || $staff['username'] === 'admin' || ($staff['role_slug'] ?? '') === 'admin') {
+            Response::error(404, 'Staff member not found.');
+            return;
+        }
+
+        $assignments = array_filter([
+            'Production Unit' => $staff['production_unit_name'] ?? null,
+            'Warehouse'       => $staff['warehouse_name'] ?? null,
+            'Shop'            => $staff['shop_name'] ?? null,
+            'Sales Channel'   => $staff['channel_name'] ?? null,
+        ]);
+
+        Response::view('admin.staff_view', [
+            'pageTitle'    => 'Staff Details',
+            'activeModule' => 'staff',
+            'activeMenu'   => 'staff-all',
+            'breadcrumb'   => [
+                ['label' => 'Staff', 'url' => url('admin/staff')],
+                ['label' => 'Details'],
+            ],
+            'staff'        => $staff,
+            'assignments'  => $assignments,
+        ]);
+    }
+
     /**
      * Show create staff form.
      */

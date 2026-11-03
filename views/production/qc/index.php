@@ -120,6 +120,9 @@
                                 <td><span class="badge <?= $statusClass ?>"><?= e($b['status']) ?></span></td>
                                 <td class="text-end">
                                     <div class="btn-group btn-group-sm" role="group">
+                                        <a href="<?= url('production/qc/view/' . $b['id']) ?>" class="btn btn-outline-info" title="View QC Details">
+                                            <i class="bi bi-eye me-1"></i>View
+                                        </a>
                                         <?php if (hasPermission('qc', 'edit')): ?>
                                             <?php if ($b['rework_qty'] > 0 || $b['rejected_qty'] > 0): ?>
                                                 <a href="<?= url('production/qc/inspect/' . $b['id']) ?>" class="btn btn-warning text-dark fw-semibold" title="Re-check Rework &amp; Rejected Products">

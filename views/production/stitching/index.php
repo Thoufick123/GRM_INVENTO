@@ -111,6 +111,9 @@
                                 <td><span class="badge <?= $statusClass ?>"><?= e($b['status']) ?></span></td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-1 align-items-center">
+                                        <a href="<?= url('production/stitching/view/' . $b['id']) ?>" class="btn btn-sm btn-outline-info" title="View Stitching Batch">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
                                         <?php if (hasPermission('stitching', 'edit')): ?>
                                         <a href="<?= url('production/stitching/edit/' . $b['id']) ?>" class="btn btn-sm btn-outline-primary" title="Edit Stitching Batch">
                                             <i class="bi bi-pencil"></i>

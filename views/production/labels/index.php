@@ -98,6 +98,9 @@
                                 <td><span class="badge <?= $statusClass ?>"><?= e($b['status']) ?></span></td>
                                 <td class="text-end">
                                     <div class="btn-group btn-group-sm">
+                                        <a href="<?= url('production/labels/view/' . $b['id']) ?>" class="btn btn-outline-info" title="View Label Batch">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
                                         <?php if (hasPermission('labels', 'edit')): ?>
                                         <a href="<?= url('production/labels/edit/' . $b['id']) ?>" class="btn btn-outline-primary" title="Edit">
                                             <i class="bi bi-pencil"></i>

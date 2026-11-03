@@ -26,8 +26,8 @@
     <?= CSRF::field() ?>
 
     <div class="row g-4">
-        <!-- Left Main Column: Vendor & Multi-Roll Details -->
-        <div class="col-lg-8">
+        <!-- Supplier, Material, and Document Details -->
+        <div class="col-12">
             <!-- 1. Supplier Basic Information -->
             <div class="card shadow-sm border mb-4">
                 <div class="card-header bg-white py-3">
@@ -424,30 +424,31 @@
             </div>
         </div>
 
-        <!-- Right Column: Status Toggle & Action Buttons -->
-        <div class="col-lg-4">
-            <!-- Status Card -->
-            <div class="card shadow-sm border mb-4">
-                <div class="card-body p-4">
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" role="switch" id="isActiveSwitch" name="is_active" value="1" <?= $seller['is_active'] ? 'checked' : '' ?>>
-                        <label class="form-check-label fw-bold text-dark ms-2" for="isActiveSwitch">
-                            Vendor is Active for Purchase Orders
-                        </label>
+        <div class="col-12">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border h-100">
+                        <div class="card-body p-4 d-flex align-items-center">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="isActiveSwitch" name="is_active" value="1" <?= $seller['is_active'] ? 'checked' : '' ?>>
+                                <label class="form-check-label fw-bold text-dark ms-2" for="isActiveSwitch">
+                                    Vendor is Active for Purchase Orders
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Action Buttons Card -->
-            <div class="card shadow-sm border mb-4 sticky-top" style="top: 20px; z-index: 10;">
-                <div class="card-body p-4">
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg shadow-sm" id="submitBtn">
-                            <i class="bi bi-check2-circle me-1"></i> Update Supplier
-                        </button>
-                        <a href="<?= url('production/sellers') ?>" class="btn btn-outline-secondary">
-                            Cancel
-                        </a>
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border h-100">
+                        <div class="card-body p-4 d-flex align-items-center justify-content-end gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg shadow-sm" id="submitBtn">
+                                <i class="bi bi-check2-circle me-1"></i> Update Supplier
+                            </button>
+                            <a href="<?= url('production/sellers') ?>" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

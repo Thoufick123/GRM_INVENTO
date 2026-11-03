@@ -9947,4 +9947,241 @@ class ProductionController {
         $items = Database::fetchAll("SELECT id, name, category, unit_type, default_rate FROM production_expense_items ORDER BY name ASC");
         Response::json(['success' => true, 'items' => $items]);
     }
+
+    public function viewDamage(string $id): void {
+        $damage = Database::fetchOne(
+            "SELECT rd.*, s.name AS seller_name, s.company AS seller_company,
+                    sr.roll_number, sr.color AS roll_color, sr.design_name AS roll_design,
+                    u_rep.full_name AS reported_by_name, u_res.full_name AS resolved_by_name,
+                    repl_sr.roll_number AS replacement_roll_code
+             FROM roll_damages rd
+             JOIN sellers s ON rd.seller_id = s.id
+             JOIN seller_rolls sr ON rd.seller_roll_id = sr.id
+             LEFT JOIN users u_rep ON rd.reported_by = u_rep.id
+             LEFT JOIN users u_res ON rd.resolved_by = u_res.id
+             LEFT JOIN seller_rolls repl_sr ON rd.replacement_roll_id = repl_sr.id
+             WHERE rd.id = ?",
+            [(int)$id]
+        );
+        if (!$damage) {
+            Response::error(404, 'Damage record not found.');
+            return;
+        }
+
+        $this->renderProductionRecord(
+            'Damage Record ' . ($damage['damage_number'] ?? ('#' . $damage['id'])),
+            'damages',
+            'Damages',
+            url('production/damages'),
+            [
+                'Supplier'          => $damage['seller_name'] ?? '—',
+                'Company'           => $damage['seller_company'] ?? '—',
+                'Roll Number'       => $damage['roll_number'] ?? '—',
+                'Color'             => $damage['roll_color'] ?? '—',
+                'Design'            => $damage['roll_design'] ?? '—',
+                'Reason'            => $damage['damage_reason'] ?? '—',
+                'Notes'             => $damage['defect_notes'] ?? '—',
+                'Status'            => $damage['status'] ?? '—',
+                'Resolution'        => $damage['resolution_type'] ?? '—',
+                'Debit Note'        => $damage['debit_note_number'] ?? '—',
+                'Replacement Roll'  => $damage['replacement_roll_code'] ?? ($damage['replacement_roll_number'] ?? '—'),
+                'Reported By'       => $damage['reported_by_name'] ?? '—',
+                'Resolved By'       => $damage['resolved_by_name'] ?? '—',
+                'Created At'        => $damage['created_at'] ?? '—',
+            ],
+            [],
+            [],
+            'Damage Details'
+        );
+    }
+
+    public function viewCuttingBatch(string $id): void {
+        $batch = CuttingBatch::find((int)$id);
+        if (!$batch) {
+            Response::error(404, 'Cutting batch not found.');
+            return;
+        }
+
+        $items = CuttingBatch::getItems((int)$id);
+        $this->renderProductionRecord(
+            'Cutting Batch ' . ($batch['batch_number'] ?? ('#' . $batch['id'])),
+            'cutting',
+            'Cutting',
+            url('production/cutting'),
+            [
+                'Name'            => $batch['name'] ?? '—',
+                'Batch Number'    => $batch['batch_number'] ?? '—',
+                'Program'         => $batch['program_number'] ?? ($batch['program_name'] ?? '—'),
+                'Product'         => $batch['product_name'] ?? '—',
+                'Production Unit' => $batch['unit_name'] ?? '—',
+                'Operator'        => $batch['operator_name'] ?? '—',
+                'Status'          => $batch['status'] ?? '—',
+                'Planned Quantity'=> number_format((int)($batch['planned_qty'] ?? 0)),
+                'Cut Quantity'    => number_format((int)($batch['cut_qty'] ?? 0)),
+                'Rejected Quantity'=> number_format((int)($batch['rejected_qty'] ?? 0)),
+                'Wastage Quantity' => number_format((float)($batch['wastage_qty'] ?? 0), 2),
+                'Created At'      => $batch['created_at'] ?? '—',
+            ],
+            $items,
+            [
+                'Catalog'   => 'catalog_hierarchy',
+                'Size'      => 'size_name',
+                'Color'     => 'color_name',
+                'Planned'   => 'planned_qty',
+                'Cut'       => 'cut_qty',
+                'Rejected'  => 'rejected_qty',
+                'Wastage'   => 'wastage_qty',
+            ],
+            'Cut Items'
+        );
+    }
+
+    public function viewStitchingBatch(string $id): void {
+        $batch = StitchingBatch::find((int)$id);
+        if (!$batch) {
+            Response::error(404, 'Stitching batch not found.');
+            return;
+        }
+
+        $items = StitchingBatch::getItems((int)$id);
+        $this->renderProductionRecord(
+            'Stitching Batch ' . ($batch['batch_number'] ?? ('#' . $batch['id'])),
+            'stitching',
+            'Stitching',
+            url('production/stitching'),
+            [
+                'Name'             => $batch['name'] ?? '—',
+                'Batch Number'     => $batch['batch_number'] ?? '—',
+                'Program'          => $batch['program_number'] ?? ($batch['program_name'] ?? '—'),
+                'Cutting Batch'    => $batch['cutting_batch_number'] ?? ($batch['cutting_name'] ?? '—'),
+                'Product'          => $batch['product_name'] ?? '—',
+                'Worker'           => $batch['worker_name'] ?? '—',
+                'Status'           => $batch['status'] ?? '—',
+                'Received Quantity'=> number_format((int)($batch['received_qty'] ?? 0)),
+                'Stitched Quantity'=> number_format((int)($batch['stitched_qty'] ?? 0)),
+                'Rejected Quantity'=> number_format((int)($batch['rejected_qty'] ?? 0)),
+                'Rework Quantity'  => number_format((int)($batch['rework_qty'] ?? 0)),
+                'Total Weight'     => number_format((float)($batch['total_weight'] ?? 0), 2) . ' kg',
+                'Created At'       => $batch['created_at'] ?? '—',
+            ],
+            $items,
+            [
+                'Catalog' => 'catalog_hierarchy',
+                'Size'    => 'display_size',
+                'Color'   => 'display_color',
+                'Received'=> 'received_qty',
+                'Stitched'=> 'stitched_qty',
+                'Rejected'=> 'rejected_qty',
+                'Rework'  => 'rework_qty',
+                'Weight'  => 'weight',
+            ],
+            'Stitching Items'
+        );
+    }
+
+    public function viewLabelBatch(string $id): void {
+        $batch = LabelBatch::find((int)$id);
+        if (!$batch) {
+            Response::error(404, 'Label batch not found.');
+            return;
+        }
+
+        $items = LabelBatch::getItems((int)$id);
+        $this->renderProductionRecord(
+            'Label Batch ' . ($batch['batch_number'] ?? ('#' . $batch['id'])),
+            'labels',
+            'Labels',
+            url('production/labels'),
+            [
+                'Batch Number'      => $batch['batch_number'] ?? '—',
+                'Program'           => $batch['program_number'] ?? ($batch['program_name'] ?? '—'),
+                'Stitching Batch'   => $batch['stitching_batch_number'] ?? ($batch['stitching_name'] ?? '—'),
+                'Product'           => $batch['product_name'] ?? '—',
+                'Required Labels'   => number_format((int)($batch['required_qty'] ?? 0)),
+                'Printed'           => number_format((int)($batch['printed_qty'] ?? 0)),
+                'Used / Applied'    => number_format((int)($batch['used_qty'] ?? 0)),
+                'Damaged'           => number_format((int)($batch['damaged_qty'] ?? 0)),
+                'Status'            => $batch['status'] ?? '—',
+                'Created At'        => $batch['created_at'] ?? '—',
+            ],
+            $items,
+            [
+                'Catalog' => 'category_name',
+                'Size'    => 'display_size',
+                'Color'   => 'display_color',
+                'SKU'     => 'sku',
+                'Required'=> 'required_qty',
+                'Printed' => 'printed_qty',
+                'Used'    => 'used_qty',
+                'Damaged' => 'damaged_qty',
+            ],
+            'Label Items'
+        );
+    }
+
+    public function viewQCBatch(string $id): void {
+        $batch = QCBatch::find((int)$id);
+        if (!$batch) {
+            Response::error(404, 'QC batch not found.');
+            return;
+        }
+
+        $items = QCBatch::getItems((int)$id);
+        $this->renderProductionRecord(
+            'QC Batch #' . $batch['id'],
+            'qc',
+            'Quality Control',
+            url('production/qc'),
+            [
+                'Program'         => $batch['program_number'] ?? ($batch['program_name'] ?? '—'),
+                'Product'         => $batch['product_name'] ?? '—',
+                'Inspector'       => $batch['inspector_name'] ?? '—',
+                'Status'          => $batch['status'] ?? '—',
+                'Total Quantity'  => number_format((int)($batch['total_qty'] ?? 0)),
+                'Passed'          => number_format((int)($batch['passed_qty'] ?? 0)),
+                'Rejected'        => number_format((int)($batch['rejected_qty'] ?? 0)),
+                'Rework'          => number_format((int)($batch['rework_qty'] ?? 0)),
+                'Created At'      => $batch['created_at'] ?? '—',
+            ],
+            $items,
+            [
+                'Catalog'   => 'catalog_hierarchy',
+                'Size'      => 'display_size',
+                'Color'     => 'display_color',
+                'Inspected' => 'inspected_qty',
+                'Passed'    => 'passed_qty',
+                'Rejected'  => 'rejected_qty',
+                'Rework'    => 'rework_qty',
+            ],
+            'Inspection Items'
+        );
+    }
+
+    private function renderProductionRecord(
+        string $recordTitle,
+        string $activeMenu,
+        string $sectionTitle,
+        string $backUrl,
+        array $fields,
+        array $items,
+        array $itemColumns,
+        string $itemsTitle
+    ): void {
+        Response::view('production.record_view', [
+            'pageTitle'    => $recordTitle,
+            'activeModule' => 'production',
+            'activeMenu'   => $activeMenu,
+            'breadcrumb'   => [
+                ['label' => 'Production', 'url' => url('production/dashboard')],
+                ['label' => $sectionTitle, 'url' => $backUrl],
+                ['label' => 'Details'],
+            ],
+            'recordTitle'  => $recordTitle,
+            'backUrl'      => $backUrl,
+            'fields'       => $fields,
+            'items'        => $items,
+            'itemColumns'  => $itemColumns,
+            'itemsTitle'   => $itemsTitle,
+        ]);
+    }
 }

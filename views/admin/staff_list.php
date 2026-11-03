@@ -299,6 +299,9 @@ if (empty($currentDept)) $currentDept = 'all';
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="btn-group">
+                                            <a href="<?= url('admin/staff/view/' . $s['id']) ?>" class="btn btn-sm btn-outline-primary" title="View Staff Details">
+                                                <i class="bi bi-eye"></i> View
+                                            </a>
                                             <a href="<?= url('system/audit?user_id=' . $s['id']) ?>" class="btn btn-sm btn-outline-info" title="View Activity & Audit Logs for <?= e($s['full_name']) ?>">
                                                 <i class="bi bi-clock-history"></i> Logs
                                             </a>

@@ -14,8 +14,8 @@
     <?= CSRF::field() ?>
 
     <div class="row g-4">
-        <!-- Left Main Column: Vendor & Multi-Roll Details -->
-        <div class="col-lg-8">
+        <!-- Supplier, Material, and Document Details -->
+        <div class="col-12">
             <!-- 1. Supplier Basic Information -->
             <div class="card shadow-sm border mb-4">
                 <div class="card-header bg-white py-3">
@@ -383,20 +383,14 @@
             </div>
         </div>
 
-        <!-- Right Column: Action Buttons -->
-        <div class="col-lg-4">
-            <!-- Action Buttons Card -->
-            <div class="card shadow-sm border mb-4 sticky-top" style="top: 20px; z-index: 10;">
-                <div class="card-body p-4">
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg shadow-sm" id="submitBtn">
-                            <i class="bi bi-check2-circle me-1"></i> Save Material Supplier
-                        </button>
-                        <a href="<?= url('production/sellers') ?>" class="btn btn-outline-secondary">
-                            Cancel
-                        </a>
-                    </div>
-                </div>
+        <div class="col-12">
+            <div class="d-flex justify-content-end gap-2 pt-2 mb-4">
+                <button type="submit" class="btn btn-primary btn-lg shadow-sm" id="submitBtn">
+                    <i class="bi bi-check2-circle me-1"></i> Save Material Supplier
+                </button>
+                <a href="<?= url('production/sellers') ?>" class="btn btn-outline-secondary">
+                    Cancel
+                </a>
             </div>
         </div>
     </div>

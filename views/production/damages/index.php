@@ -281,6 +281,9 @@
                                 <!-- Actions -->
                                 <td class="text-center">
                                     <div class="btn-group btn-group-sm">
+                                        <a href="<?= url('production/damages/view/' . $d['id']) ?>" class="btn btn-outline-info" title="View Damage Details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
                                         <?php if (hasPermission('damages', 'edit')): ?>
                                         <button type="button" class="btn btn-outline-warning" title="Edit Damage Record" onclick='openEditDamageModal(<?= json_encode($d) ?>)'>
                                             <i class="bi bi-pencil-square"></i>

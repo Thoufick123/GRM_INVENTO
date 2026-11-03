@@ -265,6 +265,9 @@
                                 </td>
                                 <td class="text-end">
                                     <div class="btn-group btn-group-sm">
+                                        <a href="<?= url('production/cutting/view/' . $b['id']) ?>" class="btn btn-outline-info" title="View Cutting Batch">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
                                         <?php if (hasPermission('cutting', 'edit')): ?>
                                         <a href="<?= url('production/cutting/edit/' . $b['id']) ?>" class="btn btn-outline-primary" title="Edit Batch">
                                             <i class="bi bi-pencil"></i>
