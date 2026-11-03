@@ -26,7 +26,8 @@ $isZeroStockRestricted = false;
 $qrBatches         = $qrBatches ?? [];
 $inwardedVariantIds= $inwardedVariantIds ?? [];
 $viewParam         = $_GET['view'] ?? '';
-$isGeneratingView  = ($viewParam === 'generate') || (!empty($selectedCatalogCode) && $viewParam !== 'batches') || (!empty($selectedVariantId) && $viewParam !== 'batches');
+$isViewingExisting = $viewParam === 'existing';
+$isGeneratingView  = in_array($viewParam, ['generate', 'existing'], true) || (!empty($selectedCatalogCode) && $viewParam !== 'batches') || (!empty($selectedVariantId) && $viewParam !== 'batches');
 
 // Build items to generate labels for
 $activeVar = null;
@@ -906,7 +907,68 @@ if ($currentSourceType === 'po' || $currentSourceType === 'tp_purchase') {
     }
 }
 
-if (!empty($generatedItems)) {
+if ($isViewingExisting && $selectedVariantId && $activeVar) {
+    $existingQrCodes = Database::fetchAll(
+        "SELECT qr_code, inwarded_at
+         FROM warehouse_qr_codes
+         WHERE variant_id = ?
+         ORDER BY created_at ASC, id ASC",
+        [(int)$selectedVariantId]
+    );
+    $generatedItems = [];
+
+    $activeCategoryType = strtoupper($activeVar['warehouse_category_type'] ?? '');
+    $isComp = !empty($activeVar['is_complementary']) || !empty($activeVar['product_is_comp']) || $activeCategoryType === 'COMPLEMENTARY';
+    $isSeries = strtoupper($activeVar['qr_type'] ?? '') === 'SERIES_BATCH'
+        || strtoupper($activeVar['qr_type'] ?? '') === 'SERIES'
+        || $activeCategoryType === 'SERIES';
+    $brandOrSeller = !empty($activeVar['brand_name']) && $activeVar['brand_name'] !== 'Third-Party Brand'
+        ? $activeVar['brand_name']
+        : (!empty($activeVar['seller_company']) ? $activeVar['seller_company'] : (!empty($activeVar['seller_name']) ? $activeVar['seller_name'] : 'GRM CLASSIC'));
+    $sizeVal = trim($activeVar['size_name'] ?? '');
+    $colorVal = trim($activeVar['color_name'] ?? '');
+    $cleanSku = !empty($sizeVal) && !empty($colorVal)
+        ? $sizeVal . '-' . $colorVal
+        : (!empty($activeVar['sku']) ? $activeVar['sku'] : 'STD');
+    $existingCount = count($existingQrCodes);
+
+    foreach ($existingQrCodes as $index => $qrCode) {
+        $tagCode = (string)$qrCode['qr_code'];
+        $generatedItems[] = [
+            'piece_no'             => $index + 1,
+            'total_count'          => $existingCount,
+            'variant_id'           => (int)$selectedVariantId,
+            'qr_prefix'            => '',
+            'tag_code'             => $tagCode,
+            'product_name'         => $activeVar['product_name'] ?? '',
+            'sku'                  => $activeVar['sku'] ?? '',
+            'clean_sku'            => $cleanSku,
+            'brand_name'           => $brandOrSeller,
+            'size_name'            => $activeVar['size_name'] ?? 'Free',
+            'color_name'           => $activeVar['color_name'] ?? 'Std',
+            'mrp'                  => (float)($activeVar['mrp'] ?? 0),
+            'selling_price'        => (float)($activeVar['selling_price'] ?? 0),
+            'cost_price'           => (float)($activeVar['purchase_price'] ?? 0),
+            'source_label'         => 'Previously generated supplier QR label',
+            'badge_class'          => 'bg-success',
+            'qr_payload'           => $tagCode,
+            'is_series'            => $isSeries || $isComp,
+            'is_complementary'     => $isComp,
+            'pack_quantity'        => (int)($activeVar['pack_quantity'] ?? 1),
+            'is_inwarded'          => !empty($qrCode['inwarded_at']),
+            'category_name'        => $activeVar['category_name'] ?? '',
+            'subcategory_name'     => $activeVar['subcategory_name'] ?? '',
+            'sub_subcategory_name' => $activeVar['sub_subcategory_name'] ?? '',
+            'category_hierarchy'   => implode(' › ', array_filter([
+                $activeVar['category_name'] ?? '',
+                $activeVar['subcategory_name'] ?? '',
+                $activeVar['sub_subcategory_name'] ?? '',
+            ])),
+        ];
+    }
+}
+
+if (!empty($generatedItems) && !$isViewingExisting) {
     Database::beginTransaction();
     try {
         $nextSequenceByPrefix = [];
@@ -1575,11 +1637,11 @@ foreach ($qrBatches as $batch) {
                                                                     <i class="bi bi-box-arrow-in-down me-1"></i>Inward Remaining (+<?= (int)$batch['remaining_qty'] ?>)
                                                                 </a>
                                                                 <?php endif; ?>
-                                                                <a href="<?= $loadUrl ?>" class="btn btn-sm btn-outline-primary fw-semibold px-2 py-1" title="View QR stickers from this batch">
+                                                                <a href="<?= e(str_replace('view=generate', 'view=existing', $loadUrl)) ?>" class="btn btn-sm btn-outline-primary fw-semibold px-2 py-1" title="View previously generated QR stickers from this batch">
                                                                     <i class="bi bi-eye me-1"></i>View
                                                                 </a>
                                                             <?php elseif ($isInwarded): ?>
-                                                                <a href="<?= $loadUrl ?>" class="btn btn-sm btn-outline-primary fw-semibold px-2.5 py-1" title="View QR stickers from this batch">
+                                                                <a href="<?= e(str_replace('view=generate', 'view=existing', $loadUrl)) ?>" class="btn btn-sm btn-outline-primary fw-semibold px-2.5 py-1" title="View previously generated QR stickers from this batch">
                                                                     <i class="bi bi-eye me-1"></i>View
                                                                 </a>
                                                             <?php else: ?>
@@ -1617,9 +1679,15 @@ foreach ($qrBatches as $batch) {
             <i class="bi bi-arrow-left me-1"></i> Back to QR Batches History
         </button>
         <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1.5 font-monospace">
-            <i class="bi bi-qr-code-scan me-1 text-primary"></i>QR Generation Mode Active
+            <i class="bi bi-qr-code-scan me-1 text-primary"></i><?= $isViewingExisting ? 'Saved QR Labels — View Only' : 'QR Generation Mode Active' ?>
         </span>
     </div>
+
+<?php if ($isViewingExisting): ?>
+    <div class="alert alert-info py-2 mb-3 no-print">
+        <i class="bi bi-info-circle me-1"></i>Viewing previously generated QR labels. No new QR codes or stock changes will be made from this page.
+    </div>
+<?php endif; ?>
 
 <!-- ========================================================================= -->
 <!-- SOURCE SELECTION TABS (Tab 1: Customer Returns | Tab 2: Third-Party Buy Products) -->
@@ -1641,7 +1709,7 @@ foreach ($qrBatches as $batch) {
     </div>
 
     <div class="card-body p-4">
-        <form method="GET" action="<?= url('warehouse/labels') ?>" id="qrGenForm" class="row g-3">
+        <form method="GET" action="<?= url('warehouse/labels') ?>" id="qrGenForm" class="row g-3" <?= $isViewingExisting ? 'style="display:none;"' : '' ?>>
             <input type="hidden" name="source_type" value="<?= e($currentSourceType) ?>">
 
             <?php if ($currentSourceType === 'returns'): ?>
@@ -2020,16 +2088,18 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
                 <input type="text" id="filterTagInput" class="form-control" placeholder="Filter by Code or SKU..." onkeyup="filterRenderedStickers()">
             </div>
             <!-- Print Selected Stickers Button -->
-            <?php if (hasPermission('wh_labels', 'print')): ?>
+            <?php if (!$isViewingExisting && hasPermission('wh_labels', 'print')): ?>
                 <button type="button" class="btn btn-sm btn-primary fw-semibold shadow-sm" id="btnPrintSelectedStickers" onclick="printSelectedStickers()" disabled title="Print only the selected checked stickers">
                     <i class="bi bi-check2-circle me-1"></i> Print Selected (<span id="btnSelectedCount">0</span>)
                 </button>
+            <?php endif; ?>
             <!-- Print All Stickers Button -->
+            <?php if (hasPermission('wh_labels', 'print')): ?>
             <button type="button" class="btn btn-sm btn-success fw-semibold shadow-sm" onclick="printAllGeneratedStickers()">
                 <i class="bi bi-printer me-1"></i> Print All Stickers
             </button>
             <?php endif; ?>
-            <?php if (($currentSourceType === 'returns' && hasPermission('returns', 'classify')) || ($currentSourceType !== 'returns' && (hasPermission('inward', 'create') || hasPermission('inward', 'verify') || hasPermission('purchases', 'receive')))): ?>
+            <?php if (!$isViewingExisting && (($currentSourceType === 'returns' && hasPermission('returns', 'classify')) || ($currentSourceType !== 'returns' && (hasPermission('inward', 'create') || hasPermission('inward', 'verify') || hasPermission('purchases', 'receive'))))): ?>
             <button type="button" class="btn btn-sm btn-outline-success fw-semibold shadow-sm" id="btnQuickInwardSelected" onclick="confirmStickeredInwardAction(event)" disabled title="Select QR sticker(s) first to inward them into warehouse stock">
                 <i class="bi bi-box-arrow-in-down me-1"></i> Inward Selected QR
             </button>
@@ -2046,11 +2116,12 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
         <?php if (empty($generatedItems)): ?>
             <div class="text-center py-5 text-muted">
                 <i class="bi bi-qr-code fs-1 d-block mb-3 text-secondary"></i>
-                <h5>Select Brand &amp; SKU above to generate QR stickers</h5>
-                <p class="mb-0">Choose the Brand/Supplier and Variant/SKU to generate scannable QR price stickers and inward stock to warehouse inventory.</p>
+                <h5><?= $isViewingExisting ? 'No saved QR labels found for this product' : 'Select Brand &amp; SKU above to generate QR stickers' ?></h5>
+                <p class="mb-0"><?= $isViewingExisting ? 'No previously generated QR stickers are available to view.' : 'Choose the Brand/Supplier and Variant/SKU to generate scannable QR price stickers and inward stock to warehouse inventory.' ?></p>
             </div>
         <?php else: ?>
             <!-- DYNAMIC SELECTION & QR ADJUSTMENT ACTION BAR -->
+            <?php if (!$isViewingExisting): ?>
             <div class="p-3 mb-3 rounded-3 border bg-light shadow-xs no-print" id="qrSelectionAdjustmentBar">
                 <div class="row g-2 align-items-center">
                     <!-- Selection Controls: Select All & Range Selection -->
@@ -2088,6 +2159,7 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4 g-3" id="stickersCardGrid">
                 <?php foreach ($generatedItems as $index => $item): ?>
@@ -2106,19 +2178,27 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
                             <div class="d-flex align-items-center justify-content-between mb-2">
                                 <?php if (!empty($item['is_series'])): ?>
                                     <div class="d-flex align-items-center gap-2">
+                                        <?php if (!$isViewingExisting): ?>
                                         <input type="checkbox" class="form-check-input piece-select-chk mt-0" id="chk-piece-<?= $index ?>" data-index="<?= $index ?>" onchange="onPieceCheckChanged(<?= $index ?>)" style="cursor: pointer;">
+                                        <?php endif; ?>
                                         <span class="badge bg-dark text-white font-monospace piece-label-badge" style="font-size: 0.68rem;"><i class="bi bi-boxes me-1"></i>Master Pack (<?= $item['pack_quantity'] ?> Pcs)</span>
                                     </div>
                                     <span class="badge bg-purple text-white" style="font-size: 0.68rem; background-color: #6f42c1 !important;"><i class="bi bi-qr-code me-1"></i><?= !empty($item['is_complementary']) ? 'Complementary Pack QR' : 'Series QR' ?></span>
                                 <?php else: ?>
                                     <div class="d-flex align-items-center gap-2">
+                                        <?php if (!$isViewingExisting): ?>
                                         <input type="checkbox" class="form-check-input piece-select-chk mt-0" id="chk-piece-<?= $index ?>" data-index="<?= $index ?>" onchange="onPieceCheckChanged(<?= $index ?>)" title="Select this QR sticker">
+                                        <?php endif; ?>
                                         <label for="chk-piece-<?= $index ?>" class="badge bg-light text-dark border border-secondary-subtle font-monospace mb-0 user-select-none piece-label-badge" style="cursor: pointer;">
                                             Piece #<?= $item['piece_no'] ?> of <?= $item['total_count'] ?>
                                         </label>
                                     </div>
                                     <?php if (!empty($item['is_adjustment'])): ?>
                                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.68rem;"><i class="bi bi-tools me-1"></i>Adjustment</span>
+                                    <?php elseif ($isViewingExisting): ?>
+                                        <span class="badge <?= !empty($item['is_inwarded']) ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' ?>" style="font-size: 0.68rem;">
+                                            <?= !empty($item['is_inwarded']) ? 'Inwarded QR' : 'Saved QR — Not Inwarded' ?>
+                                        </span>
                                     <?php else: ?>
                                         <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.68rem;"><i class="bi bi-check-circle me-1"></i>Available</span>
                                     <?php endif; ?>
@@ -2168,7 +2248,7 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
                     </div>
                 <?php endforeach; ?>
             </div>
-            <?php if ($currentSourceType === 'returns'): ?>
+            <?php if ($currentSourceType === 'returns' && !$isViewingExisting): ?>
             <!-- Return QR pages do not use the PO/third-party inward banner, but
                  the shared selected-QR action still needs a form to submit. -->
             <form id="formConfirmInward" onsubmit="confirmStickeredInwardAction(event)" class="d-none">
@@ -2184,12 +2264,14 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
                 <span id="btnInwardSubmitIcon"></span>
             </form>
             <?php endif; ?>
+            <?php if (!$isViewingExisting): ?>
             <div class="d-flex justify-content-end align-items-center gap-2 mt-3 pt-3 border-top no-print">
                 <small class="text-muted me-auto"><i class="bi bi-info-circle me-1"></i>Select QR sticker(s) above, then inward them into warehouse stock.</small>
                 <button type="button" class="btn btn-success fw-bold shadow-sm" id="btnBottomInwardSelected" onclick="confirmStickeredInwardAction(event)" disabled title="Select QR sticker(s) first to inward them into warehouse stock">
                     <i class="bi bi-box-arrow-in-down me-1"></i> Inward Selected QR
                 </button>
             </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -2272,7 +2354,7 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
         </div>
     </div>
 </div>
-<?php elseif (in_array($currentSourceType, ['po', 'tp_purchase']) && !empty($generatedItems) && !empty($selectedVariantId)): 
+<?php elseif (!$isViewingExisting && in_array($currentSourceType, ['po', 'tp_purchase']) && !empty($generatedItems) && !empty($selectedVariantId)):
     $activeVar = null;
     $lookupPool = $thirdPartyVariants;
     foreach ($lookupPool as $sv) {

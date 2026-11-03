@@ -9158,7 +9158,10 @@ class WarehouseController {
                 : Database::fetchOne("SELECT quantity FROM purchase_items WHERE variant_id = ? ORDER BY id DESC LIMIT 1", [$variantId]);
             $poQty = (int)($poItem['quantity'] ?? 0);
             $packQuantity = (int)($variant['pack_quantity'] ?? 0);
-            $targetPackQty = $packQuantity > 1 ? $packQuantity : ($poQty > 0 ? $poQty : 10);
+            $targetPackQty = max($packQuantity, $poQty);
+            if ($targetPackQty <= 0) {
+                $targetPackQty = 10;
+            }
 
             // Inward transactions already recorded for this variant via stickered inward
             $alreadyInwardedQty = (int)(Database::fetchOne(
