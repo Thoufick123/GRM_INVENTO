@@ -3,13 +3,13 @@
  * Permissions Matrix Manager View
  * Comprehensive hierarchical permissions management for roles & submodules.
  */
-$rolePermIds = array_map('intval', $rolePermissionIds ?? []);
+$rolePermIds = Role::filterCrudPermissionIds(array_map('intval', $rolePermissionIds ?? []));
 $totalPossiblePerms = 0;
 foreach ($hierarchicalModules as $m) {
     foreach ($m['submodules'] as $s) {
         $totalPossiblePerms += count(array_intersect_key(
             $s['permissions'] ?? [],
-            array_flip(['view', 'create', 'edit', 'delete', 'print'])
+            array_flip(['view', 'create', 'edit', 'delete'])
         ));
     }
 }

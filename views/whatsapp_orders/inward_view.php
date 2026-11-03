@@ -940,6 +940,11 @@ function renderPieceCards() {
         const damagedCount = group.filter(piece => piece.status === 'damaged').length;
         const pendingCount = group.filter(piece => piece.status === 'pending').length;
         const totalForTag = allMatchingPieces.length;
+        const isPackType = ['SERIES', 'COMPLEMENTARY'].includes(String(inspState.productType).toUpperCase());
+        const goodAction = isPackType
+            ? "markAllPendingPieces('good')"
+            : (totalForTag > 1 ? `markNextPieceWithTag(${p.num}, 'good')` : `markPieceSingle(${p.num}, 'good')`);
+        const goodLabel = isPackType ? 'Good All' : `Good${totalForTag > 1 ? ' +1' : ''}`;
         let borderClass = 'border';
 
         if (pendingCount === 0 && damagedCount === 0) {
@@ -986,7 +991,7 @@ function renderPieceCards() {
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
                             ${statusBadge}
                             ${pendingCount > 0 ? `<div class="btn-group btn-group-xs">
-                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 fs-9" onclick="${totalForTag > 1 ? `markNextPieceWithTag(${p.num}, 'good')` : `markPieceSingle(${p.num}, 'good')`}">🟢 Good${totalForTag > 1 ? ' +1' : ''}</button>
+                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 fs-9" onclick="${goodAction}">🟢 ${goodLabel}</button>
                                 <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 fs-9" onclick="${totalForTag > 1 ? `markNextPieceWithTag(${p.num}, 'damaged')` : `markPieceSingle(${p.num}, 'damaged')`}">🔴 Damage${totalForTag > 1 ? ' +1' : ''}</button>
                             </div>` : ''}
                         </div>
@@ -1019,6 +1024,21 @@ function markNextPieceWithTag(pieceNum, status) {
     const tag = inspState.pieces.find(piece => piece.num === pieceNum)?.tag;
     const nextPiece = inspState.pieces.find(piece => piece.tag === tag && piece.status === 'pending');
     if (nextPiece) markPieceSingle(nextPiece.num, status);
+}
+
+function markAllPendingPieces(status) {
+    const pendingPieces = inspState.pieces.filter(piece => piece.status === 'pending');
+    if (pendingPieces.length === 0) return;
+
+    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    pendingPieces.forEach(piece => {
+        piece.status = status;
+        piece.scannedAt = now;
+        if (status === 'good') inspState.goodCount++;
+        else if (status === 'damaged') inspState.damagedCount++;
+    });
+
+    updateInspectionUI();
 }
 
 function markPieceSingle(pieceNum, status) {
@@ -1245,12 +1265,28 @@ function triggerScan() {
 
             if (exactTagMatch || val === payload || val === sku || (sku.length > 5 && val.includes(sku))) {
                 recognized = true;
-                const pieceStatus = SAVED_PIECE_STATUSES[itemId][idx];
-                if (isPackType && pieceStatus.status !== 'pending') {
-                    continue;
+                if (isPackType) {
+                    const pendingPieces = SAVED_PIECE_STATUSES[itemId].filter(pc => pc.status === 'pending');
+                    if (pendingPieces.length === 0 || curRecv + curDmg >= maxQty) {
+                        showScanFeedback(`No remaining quantity for ${sku || tag}. All ${maxQty} pieces are already processed.`, true);
+                        matched = true;
+                        break;
+                    }
+
+                    const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    pendingPieces.forEach(pc => {
+                        pc.status = 'good';
+                        pc.scannedAt = now;
+                    });
+                    if (recvInput) recvInput.value = curRecv + pendingPieces.length;
+                    showScanFeedback(`${sku || tag}: ${pendingPieces.length} ${pendingPieces.length === 1 ? 'piece' : 'pieces'} verified successfully.`, false);
+                    matched = true;
+                    updateMatrixRow(itemId, true);
+                    break;
                 }
 
-                if (!isPackType && exactTagMatch && pieceStatus.status !== 'pending') {
+                const pieceStatus = SAVED_PIECE_STATUSES[itemId][idx];
+                if (exactTagMatch && pieceStatus.status !== 'pending') {
                     showScanFeedback(`Duplicate QR: ${tag} has already been processed for this Normal product.`, true);
                     matched = true;
                     break;

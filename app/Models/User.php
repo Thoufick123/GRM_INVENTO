@@ -268,15 +268,7 @@ class User {
     public static function savePermissions(int $userId, array $permissionIds): void {
         self::ensureSchema();
         Database::execute("DELETE FROM user_permissions WHERE user_id = ?", [$userId]);
-        $cleanIds = array_values(array_unique(array_filter(array_map('intval', $permissionIds))));
-        if (!empty($cleanIds)) {
-            $placeholders = implode(',', array_fill(0, count($cleanIds), '?'));
-            $rows = Database::fetchAll(
-                "SELECT id FROM permissions WHERE id IN ($placeholders)",
-                $cleanIds
-            );
-            $cleanIds = array_map('intval', array_column($rows, 'id'));
-        }
+        $cleanIds = Role::filterCrudPermissionIds($permissionIds);
         foreach ($cleanIds as $pid) {
             Database::execute("INSERT IGNORE INTO user_permissions (user_id, permission_id) VALUES (?, ?)", [$userId, $pid]);
         }

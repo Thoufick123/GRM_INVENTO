@@ -452,12 +452,35 @@ class Role {
         foreach ($permissions as $action => $permission) {
             if (isset($columns[$action])) {
                 $columns[$action][$action] = $permission;
-            } elseif ($action === 'print') {
-                $columns['view'][$action] = $permission;
             }
         }
 
         return $columns;
+    }
+
+    /**
+     * Keep only valid permission IDs for CRUD actions.
+     */
+    public static function filterCrudPermissionIds(array $permissionIds): array {
+        $permissionIds = array_values(array_unique(array_filter(
+            array_map('intval', $permissionIds),
+            static fn(int $id): bool => $id > 0
+        )));
+        if (empty($permissionIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($permissionIds), '?'));
+        $rows = Database::fetchAll(
+            "SELECT id FROM permissions WHERE id IN ($placeholders) AND action IN ('view', 'create', 'edit', 'delete')",
+            $permissionIds
+        );
+        $allowedIds = array_fill_keys(array_map('intval', array_column($rows, 'id')), true);
+
+        return array_values(array_filter(
+            $permissionIds,
+            static fn(int $id): bool => isset($allowedIds[$id])
+        ));
     }
 
     /**
@@ -475,6 +498,7 @@ class Role {
      * Save permissions for a role (replace all).
      */
     public static function savePermissions(int $roleId, array $permissionIds): void {
+        $permissionIds = self::filterCrudPermissionIds($permissionIds);
         Database::beginTransaction();
         try {
             Database::execute("DELETE FROM role_permissions WHERE role_id = ?", [$roleId]);

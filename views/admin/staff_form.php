@@ -12,11 +12,15 @@ if (!in_array($dept, ['PRODUCTION', 'WAREHOUSE', 'WHATSAPP', 'WEBSITE', 'SHOP'])
 $hierarchicalModules = $hierarchicalModules ?? Role::getHierarchicalPermissions();
 $rolePermissionsMap = $rolePermissionsMap ?? Role::getAllRolePermissionsMap();
 $staffPermissions = array_map('intval', $staffPermissions ?? []);
+$staffPermissions = Role::filterCrudPermissionIds($staffPermissions);
 
 $totalPossiblePerms = 0;
 foreach ($hierarchicalModules as $m) {
     foreach ($m['submodules'] as $s) {
-        $totalPossiblePerms += count($s['permissions'] ?? []);
+        $totalPossiblePerms += count(array_intersect_key(
+            $s['permissions'] ?? [],
+            array_flip(['view', 'create', 'edit', 'delete'])
+        ));
     }
 }
 ?>
@@ -486,16 +490,6 @@ foreach ($hierarchicalModules as $m) {
                                                     $subDept    = $sub['department'] ?? $module['department'] ?? 'ALL';
 
                                                     $crudColumns = Role::getCrudPermissionsByAction($subPerms);
-                                                    $specialPermissions = array_diff_key(
-                                                        $subPerms,
-                                                        array_flip(['view', 'create', 'edit', 'delete'])
-                                                    );
-                                                    if (in_array($subKey, ['customers', 'shop_damage'], true)) {
-                                                        $crudColumns['edit'] = [];
-                                                    }
-                                                    if (in_array($subKey, ['damage', 'shop_damage'], true)) {
-                                                        $crudColumns['delete'] = [];
-                                                    }
                                                     ?>
                                                     <tr class="perm-submodule-row" data-submodule-key="<?= e($subKey) ?>" data-dept="<?= e($subDept) ?>">
                                                         <td class="ps-3 py-2">
@@ -505,23 +499,6 @@ foreach ($hierarchicalModules as $m) {
                                                                     <div class="fw-semibold text-dark submodule-title"><?= e($subName) ?></div>
                                                                     <?php if (!empty($subDesc)): ?>
                                                                         <div class="text-muted small" style="font-size: 11px;"><?= e($subDesc) ?></div>
-                                                                    <?php endif; ?>
-                                                                    <?php if (!empty($specialPermissions)): ?>
-                                                                        <div class="d-flex flex-wrap gap-2 mt-1">
-                                                                            <?php foreach ($specialPermissions as $permissionAction => $permission): ?>
-                                                                                <label class="form-check-label d-inline-flex align-items-center gap-1 small text-muted" title="<?= e($permission['description'] ?? ucfirst($permissionAction)) ?>">
-                                                                                    <input class="form-check-input perm-checkbox perm-special mt-0"
-                                                                                           type="checkbox"
-                                                                                           name="permissions[]"
-                                                                                           value="<?= $permission['id'] ?>"
-                                                                                           data-action="<?= e($permissionAction) ?>"
-                                                                                           data-module="<?= e($subKey) ?>"
-                                                                                           data-submodule="<?= e($subKey) ?>"
-                                                                                           <?= in_array((int)$permission['id'], $staffPermissions) ? 'checked' : '' ?>>
-                                                                                    <span class="text-capitalize"><?= e(str_replace('_', ' ', $permissionAction)) ?></span>
-                                                                                </label>
-                                                                            <?php endforeach; ?>
-                                                                        </div>
                                                                     <?php endif; ?>
                                                                 </div>
                                                             </div>

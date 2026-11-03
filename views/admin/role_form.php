@@ -4,7 +4,7 @@
  */
 $isEdit = !empty($role['id']);
 $formAction = $isEdit ? url('admin/roles/update/' . $role['id']) : url('admin/roles/store');
-$assigned = array_map('intval', $assignedPermissionIds ?? []);
+$assigned = Role::filterCrudPermissionIds(array_map('intval', $assignedPermissionIds ?? []));
 $hierarchicalModules = $hierarchicalModules ?? Role::getHierarchicalPermissions();
 
 $totalPossiblePerms = 0;
