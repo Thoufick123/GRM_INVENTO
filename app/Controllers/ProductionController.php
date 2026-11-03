@@ -9601,6 +9601,59 @@ class ProductionController {
         $sql .= " ORDER BY pe.expense_date DESC, pe.id DESC";
         $expenses = Database::fetchAll($sql, $params);
 
+        $productionUnitOptions = [];
+        foreach (ProductionUnit::getAll() as $unit) {
+            $code = trim((string)($unit['code'] ?? ''));
+            if ($code !== '') {
+                $productionUnitOptions[$code] = trim((string)$unit['name']);
+            }
+        }
+
+        $savedProductionUnits = Database::fetchAll(
+            "SELECT DISTINCT production_unit
+             FROM production_expenses
+             WHERE production_unit IS NOT NULL AND TRIM(production_unit) != ''
+             ORDER BY production_unit ASC"
+        );
+        $legacyUnitLabels = [
+            'PRODUCTION_1' => 'Production Unit 1',
+            'PRODUCTION_2' => 'Production Unit 2',
+            'BOTH_UNITS'   => 'Both Units / Common',
+            'GENERAL'      => 'General Facility',
+        ];
+        foreach ($savedProductionUnits as $savedUnit) {
+            $value = trim((string)$savedUnit['production_unit']);
+            if ($value !== '' && !isset($productionUnitOptions[$value])) {
+                $productionUnitOptions[$value] = $legacyUnitLabels[$value] ?? ucwords(strtolower(str_replace(['_', '-'], ' ', $value)));
+            }
+        }
+
+        $savedExpenseCategories = Database::fetchAll(
+            "SELECT category AS value
+             FROM production_expenses
+             WHERE category IS NOT NULL AND TRIM(category) != ''
+             UNION
+             SELECT category AS value
+             FROM production_expense_items
+             WHERE category IS NOT NULL AND TRIM(category) != ''
+             ORDER BY value ASC"
+        );
+        $expenseCategoryOptions = [];
+        $knownCategoryLabels = [
+            'MACHINERY_ASSET'     => 'Machinery & Equipment',
+            'SEWING_MATERIALS'    => 'Sewing Materials & Trims',
+            'MAINTENANCE_REPAIR'  => 'Maintenance & Repairs',
+            'OPERATIONAL_UTILITY' => 'Operations & Utilities',
+            'OTHER'               => 'Other Expenses',
+            'GENERAL'             => 'General',
+        ];
+        foreach ($savedExpenseCategories as $savedCategory) {
+            $value = trim((string)$savedCategory['value']);
+            if ($value !== '') {
+                $expenseCategoryOptions[$value] = $knownCategoryLabels[$value] ?? ucwords(strtolower(str_replace(['_', '-'], ' ', $value)));
+            }
+        }
+
         // Overall stats
         $allExpenses = Database::fetchAll("SELECT production_unit, category, total_cost, paid_amount, payment_status FROM production_expenses");
         $totalCost = (float)array_sum(array_column($allExpenses, 'total_cost'));
@@ -9644,6 +9697,8 @@ class ProductionController {
             'stats'          => $stats,
             'programs'       => $programs,
             'expenseItems'   => $expenseItems,
+            'productionUnitOptions' => $productionUnitOptions,
+            'expenseCategoryOptions' => $expenseCategoryOptions,
             'search'         => $search,
             'productionUnit' => $unitFilter,
             'category'       => $categoryFilter,

@@ -162,7 +162,7 @@
                             <th class="text-end">Damaged Qty / Wt</th>
                             <th class="text-end">Loss Valuation</th>
                             <th class="text-center">Resolution &amp; Status</th>
-                            <th class="text-center" style="width: 140px;">Actions</th>
+                            <th class="text-center" style="width: 170px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -279,23 +279,23 @@
                                 </td>
 
                                 <!-- Actions -->
-                                <td class="text-center">
-                                    <div class="btn-group btn-group-sm">
-                                        <a href="<?= url('production/damages/view/' . $d['id']) ?>" class="btn btn-outline-info" title="View Damage Details">
+                                <td class="text-center text-nowrap">
+                                    <div class="d-flex align-items-center justify-content-center gap-1 flex-nowrap">
+                                        <a href="<?= url('production/damages/view/' . $d['id']) ?>" class="btn btn-sm btn-outline-info d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;" title="View Damage Details" aria-label="View Damage Details">
                                             <i class="bi bi-eye"></i>
                                         </a>
                                         <?php if (hasPermission('damages', 'edit')): ?>
-                                        <button type="button" class="btn btn-outline-warning" title="Edit Damage Record" onclick='openEditDamageModal(<?= json_encode($d) ?>)'>
+                                        <button type="button" class="btn btn-sm btn-outline-warning d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;" title="Edit Damage Record" aria-label="Edit Damage Record" onclick='openEditDamageModal(<?= json_encode($d) ?>)'>
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
-                                        <button type="button" class="btn btn-outline-primary" title="Update Return / Refund / Resolution" onclick='openResolveModal(<?= json_encode($d) ?>)'>
-                                            <i class="bi bi-arrow-repeat me-1"></i>Resolve
+                                        <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center flex-shrink-0" style="width: 34px; height: 34px;" title="Update Return / Refund / Resolution" aria-label="Update Return / Refund / Resolution" onclick='openResolveModal(<?= json_encode($d) ?>)'>
+                                            <i class="bi bi-arrow-repeat"></i>
                                         </button>
                                         <?php endif; ?>
                                         <?php if (hasPermission('damages', 'delete')): ?>
-                                        <form method="POST" action="<?= url('production/damages/delete/' . $d['id']) ?>" class="d-inline" onsubmit="return confirm('Are you sure you want to delete Damage Record #<?= e(addslashes($d['damage_number'])) ?>? Roll inventory will be restored.');">
+                                        <form method="POST" action="<?= url('production/damages/delete/' . $d['id']) ?>" class="d-inline-flex flex-shrink-0" onsubmit="return confirm('Are you sure you want to delete Damage Record #<?= e(addslashes($d['damage_number'])) ?>? Roll inventory will be restored.');">
                                             <?= CSRF::field() ?>
-                                            <button type="submit" class="btn btn-outline-danger" title="Delete Damage Record">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center" style="width: 34px; height: 34px;" title="Delete Damage Record" aria-label="Delete Damage Record">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </form>

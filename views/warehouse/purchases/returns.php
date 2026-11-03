@@ -703,6 +703,7 @@ $recentReturns = $recentReturns ?? [];
 let currentPurchaseData = null;
 let invoiceCountTimer = null;
 let invoiceCountRequestId = 0;
+const pendingReplacementScans = new Set();
 
 function isPhoneSearch(query) {
     const digits = query.replace(/\D/g, '');
@@ -923,6 +924,7 @@ function selectActionCard(mode) {
 function renderReturnItemsTable(items) {
     const tbody = document.getElementById('returnItemsTbody');
     tbody.innerHTML = '';
+    pendingReplacementScans.clear();
     Object.keys(rowPieceTags).forEach(k => delete rowPieceTags[k]);
 
     // Update item count badge
@@ -1031,6 +1033,7 @@ function setRowReplacementVariant(idx, v, scannedTag) {
 
     if (!v) {
         input.value = '';
+        delete input.dataset.scannedCode;
         delete input.dataset.scannedTag;
         delete input.dataset.price;
         delete input.dataset.qr;
@@ -1199,9 +1202,30 @@ function clearModalScanFeedback() {
     if (el) el.classList.add('d-none');
 }
 
+function normalizeReplacementScanValue(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function hasScannedReplacement(code, tag = '') {
+    const identifiers = [normalizeReplacementScanValue(code), normalizeReplacementScanValue(tag)].filter(Boolean);
+    return [...document.querySelectorAll('.sibling-variant-input')].some(input =>
+        [input.dataset.scannedCode, input.dataset.scannedTag]
+            .map(normalizeReplacementScanValue)
+            .some(identifier => identifier && identifiers.includes(identifier))
+    );
+}
+
 function onModalScanExchangeItem(code) {
     if (!code || !code.trim()) return;
     code = code.trim();
+    const normalizedCode = normalizeReplacementScanValue(code);
+    if (hasScannedReplacement(normalizedCode) || pendingReplacementScans.has(normalizedCode)) {
+        showModalScanFeedback('This product has already been scanned for this return/exchange.', 'warning');
+        document.getElementById('modalExchangeScanInput').value = '';
+        return;
+    }
+
+    pendingReplacementScans.add(normalizedCode);
     clearModalScanFeedback();
     document.getElementById('modalExchangeScanInput').value = '';
 
@@ -1214,6 +1238,10 @@ function onModalScanExchangeItem(code) {
             if (data.success && data.variant) {
                 const scannedVar = data.variant;
                 const scannedTag = data.extracted_tag || data.tag_code || data.variant.piece_tag || data.variant.qr_code || code;
+                if (hasScannedReplacement(normalizedCode, scannedTag)) {
+                    showModalScanFeedback('This product has already been scanned for this return/exchange.', 'warning');
+                    return;
+                }
 
                 if (mode === 'EXCHANGE_SAME') {
                     // Smart priority matching for line items on this invoice
@@ -1263,6 +1291,8 @@ function onModalScanExchangeItem(code) {
 
                     if (matchedRow !== -1) {
                         setRowReplacementVariant(matchedRow, scannedVar, scannedTag);
+                        const assignedInput = document.getElementById('siblingVariantInput_' + matchedRow);
+                        if (assignedInput) assignedInput.dataset.scannedCode = normalizedCode;
 
                         // Check row checkbox
                         const cb = document.querySelector(`.item-select-cb[data-idx="${matchedRow}"]`);
@@ -1281,6 +1311,9 @@ function onModalScanExchangeItem(code) {
         })
         .catch(err => {
             showModalScanFeedback('Scan Lookup Error: ' + err.message, 'danger');
+        })
+        .finally(() => {
+            pendingReplacementScans.delete(normalizedCode);
         });
 }
 

@@ -144,10 +144,9 @@
                 <div class="col-lg-2 col-md-3">
                     <select name="production_unit" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">-- All Production Units --</option>
-                        <option value="PRODUCTION_1" <?= $productionUnit === 'PRODUCTION_1' ? 'selected' : '' ?>>Production Unit 1</option>
-                        <option value="PRODUCTION_2" <?= $productionUnit === 'PRODUCTION_2' ? 'selected' : '' ?>>Production Unit 2</option>
-                        <option value="BOTH_UNITS" <?= $productionUnit === 'BOTH_UNITS' ? 'selected' : '' ?>>Both Units / Common</option>
-                        <option value="GENERAL" <?= $productionUnit === 'GENERAL' ? 'selected' : '' ?>>General Facility</option>
+                        <?php foreach ($productionUnitOptions as $unitValue => $unitLabel): ?>
+                            <option value="<?= e($unitValue) ?>" <?= $productionUnit === $unitValue ? 'selected' : '' ?>><?= e($unitLabel) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
 
@@ -155,11 +154,9 @@
                 <div class="col-lg-2 col-md-3">
                     <select name="category" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">-- All Categories --</option>
-                        <option value="MACHINERY_ASSET" <?= $category === 'MACHINERY_ASSET' ? 'selected' : '' ?>>Machinery &amp; Equipment</option>
-                        <option value="SEWING_MATERIALS" <?= $category === 'SEWING_MATERIALS' ? 'selected' : '' ?>>Sewing Materials &amp; Trims</option>
-                        <option value="MAINTENANCE_REPAIR" <?= $category === 'MAINTENANCE_REPAIR' ? 'selected' : '' ?>>Maintenance &amp; Repairs</option>
-                        <option value="OPERATIONAL_UTILITY" <?= $category === 'OPERATIONAL_UTILITY' ? 'selected' : '' ?>>Operations &amp; Utilities</option>
-                        <option value="OTHER" <?= $category === 'OTHER' ? 'selected' : '' ?>>Other Expenses</option>
+                        <?php foreach ($expenseCategoryOptions as $categoryValue => $categoryLabel): ?>
+                            <option value="<?= e($categoryValue) ?>" <?= $category === $categoryValue ? 'selected' : '' ?>><?= e($categoryLabel) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
 
