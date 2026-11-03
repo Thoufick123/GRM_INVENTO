@@ -15,6 +15,18 @@ require_once BASE_PATH . '/app/Models/ShopDamage.php';
 
 class ShopController {
 
+    private function resolveInventoryShop(?int $requestedShopId = null): ?array {
+        if ($requestedShopId !== null) {
+            $shops = function_exists('getScopedShops') ? getScopedShops() : [];
+            $allowedShopIds = array_map(static fn(array $shop): int => (int)$shop['id'], $shops);
+            if (!in_array($requestedShopId, $allowedShopIds, true)) {
+                return null;
+            }
+        }
+
+        return ShopService::getActiveShop($requestedShopId);
+    }
+
     /**
      * Shop Overview & Dashboard
      */
@@ -267,7 +279,16 @@ class ShopController {
             return;
         }
 
-        $shop = ShopService::getActiveShop();
+        $requestedShopId = isset($_GET['shop_id']) ? (int)$_GET['shop_id'] : null;
+        if ($requestedShopId !== null && $requestedShopId <= 0) {
+            $requestedShopId = null;
+        }
+        $shop = $this->resolveInventoryShop($requestedShopId);
+        if (!$shop) {
+            Response::error(403, 'You do not have access to the selected shop inventory.');
+            return;
+        }
+        $shops = function_exists('getScopedShops') ? getScopedShops() : [$shop];
         $shopId = (int)$shop['id'];
 
         $filters = [
@@ -332,6 +353,7 @@ class ShopController {
                 ['label' => 'Inventory'],
             ],
             'shop'         => $shop,
+            'shops'        => $shops,
             'inventory'    => $inventory,
             'summary'      => $summary,
             'categories'   => $categories,
@@ -351,14 +373,22 @@ class ShopController {
             return;
         }
 
-        $shop = ShopService::getActiveShop();
+        $requestedShopId = isset($_GET['shop_id']) ? (int)$_GET['shop_id'] : null;
+        if ($requestedShopId !== null && $requestedShopId <= 0) {
+            $requestedShopId = null;
+        }
+        $shop = $this->resolveInventoryShop($requestedShopId);
+        if (!$shop) {
+            Response::error(403, 'You do not have access to the selected shop inventory.');
+            return;
+        }
         $shopId = (int)$shop['id'];
         $variantId = (int)$id;
         $item = ShopService::getShopInventoryItem($shopId, $variantId);
 
         if (!$item) {
             Session::setFlash('error', "Product variant not found in shop inventory.");
-            Response::redirect(url('shop/inventory'));
+            Response::redirect(url('shop/inventory') . '?shop_id=' . $shopId);
             return;
         }
 
@@ -487,7 +517,7 @@ class ShopController {
             'activeMenu'              => 'shop-inventory',
             'breadcrumb'              => [
                 ['label' => 'Shop', 'url' => url('shop/dashboard')],
-                ['label' => 'Inventory', 'url' => url('shop/inventory')],
+                ['label' => 'Inventory', 'url' => url('shop/inventory') . '?shop_id=' . $shopId],
                 ['label' => $item['sku'] ?? 'Product Detail'],
             ],
             'shop'                    => $shop,
@@ -513,7 +543,15 @@ class ShopController {
             return;
         }
 
-        $shop = ShopService::getActiveShop();
+        $requestedShopId = isset($_GET['shop_id']) ? (int)$_GET['shop_id'] : null;
+        if ($requestedShopId !== null && $requestedShopId <= 0) {
+            $requestedShopId = null;
+        }
+        $shop = $this->resolveInventoryShop($requestedShopId);
+        if (!$shop) {
+            Response::json(['success' => false, 'message' => 'You do not have access to the selected shop inventory.'], 403);
+            return;
+        }
         $variantId = (int)$id;
         $item = ShopService::getShopInventoryItem((int)$shop['id'], $variantId);
 
@@ -535,7 +573,16 @@ class ShopController {
             return;
         }
 
-        $shop = ShopService::getActiveShop();
+        $requestedShopId = isset($_POST['shop_id']) ? (int)$_POST['shop_id'] : null;
+        if ($requestedShopId !== null && $requestedShopId <= 0) {
+            $requestedShopId = null;
+        }
+        $shop = $this->resolveInventoryShop($requestedShopId);
+        if (!$shop) {
+            Response::error(403, 'You do not have access to the selected shop inventory.');
+            return;
+        }
+        $shopQuery = '?shop_id=' . (int)$shop['id'];
         $userId = Session::userId() ?? 1;
         $items = $_POST['items'] ?? [];
         $notes = $_POST['notes'] ?? 'Shop stock transfer request';
@@ -547,7 +594,7 @@ class ShopController {
             Session::setFlash('error', "Failed to submit stock request: " . $e->getMessage());
         }
 
-        Response::redirect(url('shop/inventory'));
+        Response::redirect(url('shop/inventory') . $shopQuery);
     }
 
     /**

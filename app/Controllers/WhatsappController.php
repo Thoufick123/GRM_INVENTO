@@ -3000,6 +3000,7 @@ class WhatsappController {
     public function storeWhatsappDamage(): void {
         $chan = $this->getChannel();
         $channelId = (int)($chan['id'] ?? 3);
+        $chanIds = $this->getWhatsappChannelIds();
         $sessionUserId = Session::get('user_id');
         $userId = is_numeric($sessionUserId) && (int)$sessionUserId > 0
             ? (int)$sessionUserId
@@ -3180,14 +3181,13 @@ class WhatsappController {
             $damageRecord = Database::fetchOne("SELECT id FROM channel_damages WHERE damage_number = ?", [$dmgNum]);
             $damageRecordId = (int)($damageRecord['id'] ?? 0);
 
-            $stockChannelIds = $this->getWhatsappChannelIds();
-            $stockChannelPlaceholders = implode(',', array_fill(0, count($stockChannelIds), '?'));
+            $stockChannelPlaceholders = implode(',', array_fill(0, count($chanIds), '?'));
             $stockLocation = Database::fetchOne(
                 "SELECT location_id FROM stock_balances
                  WHERE variant_id = ? AND location_type = 'CHANNEL' AND location_id IN ($stockChannelPlaceholders)
                    AND stock_state = 'AVAILABLE' AND quantity >= ?
                  ORDER BY quantity DESC LIMIT 1",
-                array_merge([$vId], $stockChannelIds, [(float)$qty])
+                array_merge([$vId], $chanIds, [(float)$qty])
             );
             $movementLocationId = (int)($stockLocation['location_id'] ?? $channelId);
 

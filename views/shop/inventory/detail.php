@@ -208,7 +208,7 @@ $metrics = $metrics ?? [
             <p class="text-muted small mb-0 font-monospace">Product Code: <?= htmlspecialchars($item['product_code'] ?? 'N/A') ?> | Tag Range: <span class="fw-semibold text-primary"><?= htmlspecialchars($tagRangeStr) ?></span></p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <a href="<?= url('shop/inventory') ?>" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+            <a href="<?= url('shop/inventory') ?>?shop_id=<?= (int)$shop['id'] ?>" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
                 <i class="bi bi-arrow-left me-1"></i> Back to Inventory
             </a>
         </div>

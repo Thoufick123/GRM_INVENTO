@@ -5,6 +5,8 @@ $currStatus = strtolower($filters['status'] ?? '');
 $currCategory = (string)($filters['category_id'] ?? '');
 $currSort = $filters['sort'] ?? 'name_asc';
 $currSearch = $filters['search'] ?? '';
+$hasMultipleShops = count($shops ?? []) > 1;
+$shopQuery = '?shop_id=' . (int)$shop['id'];
 ?>
 <!-- Include Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
@@ -307,7 +309,7 @@ $currSearch = $filters['search'] ?? '';
                 </div>
                 
                 <?php if (!empty($currSearch) || !empty($currCategory) || !empty($currStatus) || $currSort !== 'name_asc'): ?>
-                    <a href="<?= url('shop/inventory') ?>" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold">
+                    <a href="<?= url('shop/inventory') . $shopQuery ?>" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold">
                         <i class="bi bi-arrow-counterclockwise me-1"></i> Clear All Filters
                     </a>
                 <?php endif; ?>
@@ -316,9 +318,12 @@ $currSearch = $filters['search'] ?? '';
             <!-- Main Filter Form -->
             <form method="GET" action="<?= url('shop/inventory') ?>" id="inventoryFilterForm" class="row g-3 align-items-end">
                 <input type="hidden" name="status" id="filterStatusInput" value="<?= e($currStatus) ?>">
+                <?php if (!$hasMultipleShops): ?>
+                    <input type="hidden" name="shop_id" value="<?= (int)$shop['id'] ?>">
+                <?php endif; ?>
 
                 <!-- 1. Search Bar -->
-                <div class="col-lg-4 col-md-6">
+                <div class="<?= $hasMultipleShops ? 'col-lg-3' : 'col-lg-4' ?> col-md-6">
                     <label class="form-label small fw-semibold text-secondary mb-1">
                         <i class="bi bi-search me-1"></i> Search Catalog
                     </label>
@@ -334,8 +339,23 @@ $currSearch = $filters['search'] ?? '';
                     </div>
                 </div>
 
+                <?php if ($hasMultipleShops): ?>
+                <div class="col-lg-2 col-md-6">
+                    <label class="form-label small fw-semibold text-secondary mb-1">
+                        <i class="bi bi-shop me-1"></i> Shop
+                    </label>
+                    <select name="shop_id" id="inventoryShopSelect" class="form-select">
+                        <?php foreach ($shops as $availableShop): ?>
+                            <option value="<?= (int)$availableShop['id'] ?>" <?= (int)$shop['id'] === (int)$availableShop['id'] ? 'selected' : '' ?>>
+                                <?= e($availableShop['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php endif; ?>
+
                 <!-- 2. Category Filter -->
-                <div class="col-lg-3 col-md-6">
+                <div class="<?= $hasMultipleShops ? 'col-lg-2' : 'col-lg-3' ?> col-md-6">
                     <label class="form-label small fw-semibold text-secondary mb-1">
                         <i class="bi bi-grid me-1"></i> Product Category
                     </label>
@@ -370,7 +390,7 @@ $currSearch = $filters['search'] ?? '';
                     <button type="submit" class="btn btn-primary w-100 fw-semibold rounded-3 shadow-sm">
                         <i class="bi bi-filter me-1"></i> Filter
                     </button>
-                    <a href="<?= url('shop/inventory') ?>" class="btn btn-light border rounded-3 text-secondary px-3" title="Reset Filters">
+                    <a href="<?= url('shop/inventory') . $shopQuery ?>" class="btn btn-light border rounded-3 text-secondary px-3" title="Reset Filters">
                         <i class="bi bi-arrow-clockwise"></i>
                     </a>
                 </div>
@@ -450,7 +470,7 @@ $currSearch = $filters['search'] ?? '';
                                         <i class="bi bi-box-seam fs-1 d-block mb-2 text-secondary opacity-50"></i>
                                         <h6 class="fw-bold text-secondary">No Matching Inventory Records Found</h6>
                                         <p class="small text-muted mb-3">No inventory items matched your selected search and filter criteria.</p>
-                                        <a href="<?= url('shop/inventory') ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                        <a href="<?= url('shop/inventory') . $shopQuery ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">
                                             <i class="bi bi-arrow-counterclockwise me-1"></i> Clear Filters
                                         </a>
                                     </td>
@@ -781,6 +801,7 @@ $currSearch = $filters['search'] ?? '';
         <div class="modal-content border-0 shadow rounded-4">
             <form method="POST" action="<?= url('shop/inventory/request') ?>">
                 <?= csrf_field() ?>
+                <input type="hidden" name="shop_id" value="<?= (int)$shop['id'] ?>">
                 <div class="modal-header border-bottom py-3">
                     <h5 class="modal-title fw-bold text-dark"><i class="bi bi-box-arrow-in-down text-primary me-2"></i>Indent Stock from Central Warehouse</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1150,7 +1171,7 @@ function openProductDetailModal(variantId) {
     if (content) content.classList.add('d-none');
 
     // Fetch dynamic product detail data
-    fetch(`<?= url('shop/inventory/ajax-detail') ?>/${variantId}`)
+    fetch(`<?= url('shop/inventory/ajax-detail') ?>/${variantId}?shop_id=<?= (int)$shop['id'] ?>`)
         .then(response => response.json())
         .then(data => {
             if (!data.success || !data.item) {
@@ -1520,7 +1541,7 @@ function openProductDetailModal(variantId) {
             // Update full page link
             const fullLink = document.getElementById('modalFullDetailLink');
             if (fullLink) {
-                fullLink.href = `<?= url('shop/inventory/detail') ?>/${item.variant_id || variantId}`;
+                fullLink.href = `<?= url('shop/inventory/detail') ?>/${item.variant_id || variantId}?shop_id=<?= (int)$shop['id'] ?>`;
             }
 
             if (spinner) spinner.classList.add('d-none');
