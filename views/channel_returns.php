@@ -495,17 +495,17 @@ $canProcessReturns = !$isWebsiteReturns || hasPermission('website_returns', 'cre
                             </div>
                         </div>
 
-                        <!-- Step 2B: Same Product Replacement (New Size/Color) Selection Card (Shown for EXCHANGE_SAME) -->
+                        <!-- Replacement product scanner for exchanges -->
                         <div id="sameExchangeSection" class="card border-0 shadow-sm mb-4" style="border-radius:12px; overflow:hidden;">
                             <div class="card-header bg-white py-2 px-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill font-monospace px-2.5 py-1" style="font-size:11px;">
-                                        <i class="bi bi-arrow-left-right me-1"></i>STEP 2B: REPLACEMENT (NEW) SIZE / COLOR SWAP
+                                        <i class="bi bi-upc-scan me-1"></i><?= $isWebsiteReturns ? 'SCAN SIZE / COLOR REPLACEMENT' : 'SCAN REPLACEMENT PRODUCT' ?>
                                     </span>
-                                    <span class="text-muted small">Scan the new product QR/SKU</span>
+                                    <span class="text-muted small"><?= $isWebsiteReturns ? 'Scan the new size/color QR/SKU' : 'Scan any product with available WhatsApp stock' ?></span>
                                 </div>
                                 <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1" style="font-size:11px;">
-                                    Live Warehouse Stock Available
+                                    <?= $isWebsiteReturns ? 'Live Warehouse Stock Available' : 'WhatsApp Stock Only' ?>
                                 </span>
                             </div>
                             <div class="card-body p-0">
@@ -513,7 +513,7 @@ $canProcessReturns = !$isWebsiteReturns || hasPermission('website_returns', 'cre
                                     <table class="table table-hover align-middle mb-0" id="sameExchangeTable" style="font-size:13px;">
                                         <thead style="background:#f0fdf4; font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:#166534; font-weight:700;">
                                             <tr>
-                                                <th style="width:100%;">Scan New Product QR / Barcode</th>
+                                                <th style="width:100%;">Replacement Product QR / Barcode</th>
                                             </tr>
                                         </thead>
                                         <tbody id="sameExchangeTbody">
@@ -1286,14 +1286,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const variant = res && (res.variant || res.data || res.product);
                 if (!res.success || !variant) { alert(res.message || `Product matching "${rawCode}" not found.`); return; }
                 const item = loadedOrderItemsMap[itemId];
-                if (item && Number(item.product_id) !== Number(variant.product_id)) {
+                if (<?= $isWebsiteReturns ? 'true' : 'false' ?> && item && Number(item.product_id) !== Number(variant.product_id)) {
                     alert(`Scanned product "${variant.product_name || 'Product'}" is not a size/color variant of the returned item.`);
                     return;
                 }
                 const quantity = parseInt(document.getElementById('qty_' + itemId)?.value || 1, 10) || 1;
                 const available = Number(variant.stock || 0);
                 if (available < quantity) {
-                    alert(`This replacement has only ${available} available in Website stock; ${quantity} requested.`);
+                    alert(`This replacement has only ${available} available in <?= e($returnChannelLabel) ?> stock; ${quantity} requested.`);
                     return;
                 }
 

@@ -2285,19 +2285,24 @@ class WhatsappController {
             $totalDamagedQty += (int)($row['damaged_qty'] ?? 0);
         }
 
+        $whatsappChannelIds = $this->getWhatsappChannelIds();
+        $channelPlaceholders = implode(',', array_fill(0, count($whatsappChannelIds), '?'));
         $catalogVariants = Database::fetchAll(
             "SELECT pv.id, pv.sku, pv.qr_code, pv.mrp,
                     COALESCE(NULLIF(pv.selling_price, 0), pv.mrp) as selling_price,
                     p.name as product_name, p.code as product_code,
                     COALESCE(sz.name, 'Free Size') as size_name,
                     COALESCE(clr.name, 'Standard') as color_name,
-                    COALESCE((SELECT SUM(quantity) FROM stock_balances WHERE variant_id = pv.id AND location_type = 'WAREHOUSE' AND stock_state = 'AVAILABLE'), 0) as available_stock
+                    COALESCE((SELECT SUM(quantity) FROM stock_balances
+                              WHERE variant_id = pv.id AND location_type = 'CHANNEL'
+                                AND location_id IN ($channelPlaceholders) AND stock_state = 'AVAILABLE'), 0) as available_stock
              FROM product_variants pv
              JOIN products p ON pv.product_id = p.id
              LEFT JOIN sizes sz ON pv.size_id = sz.id
              LEFT JOIN colors clr ON pv.color_id = clr.id
              WHERE p.is_active = 1
-             ORDER BY p.name ASC, sz.sort_order ASC"
+             ORDER BY p.name ASC, sz.sort_order ASC",
+            $whatsappChannelIds
         );
 
         Response::view('channel_returns', [
@@ -2555,10 +2560,14 @@ class WhatsappController {
 
         $chan = $this->getChannel();
         $channelId = (int)$chan['id'];
+        $whatsappChannelIds = $this->getWhatsappChannelIds();
+        $replacementStockPlan = [];
+        $replacementStockDispatched = [];
 
         // A same-product exchange must use a successfully scanned replacement
         // QR/SKU and that replacement must exist in the WhatsApp channel stock.
         if ($returnType === 'EXCHANGE_SAME') {
+            $replacementQtyByVariant = [];
             foreach ($items as $itm) {
                 $swapVarId = (int)($itm['exchange_variant_id'] ?? 0);
                 $swapQty = (int)($itm['qty'] ?? $itm['quantity'] ?? 0);
@@ -2569,13 +2578,31 @@ class WhatsappController {
                     Response::redirect(url('warehouse/whatsapp-orders/returns'));
                     return;
                 }
-                $replacementAvailable = StockService::getBalance($swapVarId, 'CHANNEL', $channelId, 'AVAILABLE');
-                if ($replacementAvailable < $swapQty) {
+                $replacementQtyByVariant[$swapVarId] = ($replacementQtyByVariant[$swapVarId] ?? 0) + $swapQty;
+            }
+
+            foreach ($replacementQtyByVariant as $swapVarId => $requestedQty) {
+                $remainingQty = $requestedQty;
+                $stockPlan = [];
+                foreach ($whatsappChannelIds as $stockChannelId) {
+                    $available = (int)StockService::getBalance((int)$swapVarId, 'CHANNEL', (int)$stockChannelId, 'AVAILABLE');
+                    $allocated = min($available, $remainingQty);
+                    if ($allocated > 0) {
+                        $stockPlan[(int)$stockChannelId] = $allocated;
+                        $remainingQty -= $allocated;
+                    }
+                    if ($remainingQty === 0) {
+                        break;
+                    }
+                }
+                if ($remainingQty > 0) {
                     $replacement = Database::fetchOne("SELECT sku FROM product_variants WHERE id = ?", [$swapVarId]);
-                    Session::flash('error', "Replacement product " . ($replacement['sku'] ?? ('#' . $swapVarId)) . " has only {$replacementAvailable} available in WhatsApp stock; {$swapQty} requested.");
+                    $availableQty = $requestedQty - $remainingQty;
+                    Session::flash('error', "Replacement product " . ($replacement['sku'] ?? ('#' . $swapVarId)) . " has only {$availableQty} available in WhatsApp stock; {$requestedQty} requested.");
                     Response::redirect(url('warehouse/whatsapp-orders/returns'));
                     return;
                 }
+                $replacementStockPlan[(int)$swapVarId] = $stockPlan;
             }
         }
 
@@ -2768,7 +2795,34 @@ class WhatsappController {
                              VALUES (?, 'NEW', ?, ?, ?, ?, ?)",
                             [$exchangeId, $swapVarId, $swapQty, $p, $swapQty * $p, $swapTag ?: null]
                         );
-                        StockService::decrease($swapVarId, 'CHANNEL', $channelId, 'AVAILABLE', $swapQty, 'EXCHANGE_DISPATCH', 'exchanges', $returnId, $userId, "WhatsApp Same Product Swap Dispatch");
+                        $remainingSwapQty = $swapQty;
+                        foreach ($replacementStockPlan[$swapVarId] ?? [] as $stockChannelId => $plannedQty) {
+                            $alreadyDispatched = $replacementStockDispatched[$swapVarId][$stockChannelId] ?? 0;
+                            $dispatchQty = min($remainingSwapQty, $plannedQty - $alreadyDispatched);
+                            if ($dispatchQty <= 0) {
+                                continue;
+                            }
+                            StockService::decrease(
+                                $swapVarId,
+                                'CHANNEL',
+                                (int)$stockChannelId,
+                                'AVAILABLE',
+                                (float)$dispatchQty,
+                                'EXCHANGE_DISPATCH',
+                                'exchanges',
+                                $returnId,
+                                $userId,
+                                'WhatsApp Same Product Swap Dispatch'
+                            );
+                            $replacementStockDispatched[$swapVarId][$stockChannelId] = $alreadyDispatched + $dispatchQty;
+                            $remainingSwapQty -= $dispatchQty;
+                            if ($remainingSwapQty === 0) {
+                                break;
+                            }
+                        }
+                        if ($remainingSwapQty > 0) {
+                            throw new RuntimeException('WhatsApp replacement stock changed while the exchange was being processed.');
+                        }
                     }
                 }
             } elseif (!empty($replacements) && is_array($replacements)) {
@@ -3873,6 +3927,7 @@ class WhatsappController {
     public function ajaxLookupReturnPiece(): void {
         header('Content-Type: application/json');
         $rawCode = trim($_REQUEST['query'] ?? $_REQUEST['q'] ?? $_REQUEST['code'] ?? $_REQUEST['search'] ?? '');
+        $whatsappChannelIds = $this->getWhatsappChannelIds();
         
         if (empty($rawCode)) {
             echo json_encode(['success' => false, 'message' => 'No scan code or search term provided.']);
@@ -4024,6 +4079,14 @@ class WhatsappController {
 
         if ($foundVariant) {
             $sellingPrice = (float)($foundVariant['selling_price'] ?? $foundVariant['price'] ?? 0);
+            $channelPlaceholders = implode(',', array_fill(0, count($whatsappChannelIds), '?'));
+            $availableStock = (float)(Database::fetchOne(
+                "SELECT COALESCE(SUM(quantity), 0) as available_stock
+                 FROM stock_balances
+                 WHERE variant_id = ? AND location_type = 'CHANNEL'
+                   AND location_id IN ($channelPlaceholders) AND stock_state = 'AVAILABLE'",
+                array_merge([(int)$foundVariant['id']], $whatsappChannelIds)
+            )['available_stock'] ?? 0);
             $payload = [
                 'id'            => (int)$foundVariant['id'],
                 'variant_id'    => (int)$foundVariant['id'],
@@ -4036,6 +4099,7 @@ class WhatsappController {
                 'selling_price' => $sellingPrice,
                 'price'         => $sellingPrice,
                 'mrp'           => (float)($foundVariant['mrp'] ?? $sellingPrice),
+                'stock'         => $availableStock,
                 'tag_code'      => $matchedTagCode
             ];
             echo json_encode([
