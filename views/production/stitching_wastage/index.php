@@ -964,11 +964,6 @@ function onNewStwTotalChange() {
 }
 
 function syncNewStwPaidAmount() {
-    const total = parseFloat(document.getElementById('newStwTotalAmount').value) || 0;
-    const paidInput = document.getElementById('newStwPaidAmount');
-    if (!paidInput.value || parseFloat(paidInput.value) === 0) {
-        paidInput.value = total > 0 ? total.toFixed(2) : '';
-    }
     autoCheckNewStwPaymentStatus();
 }
 
