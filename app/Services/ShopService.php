@@ -2842,7 +2842,25 @@ class ShopService {
         );
 
         // Shop details
-        $shopId = (int)($allocation['shop_id'] ?: ($allocation['destination_type'] === 'SHOP' ? $allocation['destination_id'] : 1));
+        $shopId = (int)($outward['shop_id'] ?? 0);
+        $destinationType = strtoupper(trim((string)($outward['destination_type'] ?? '')));
+        $destinationId = (int)($outward['destination_id'] ?? 0);
+        if ($shopId <= 0 && $destinationType === 'SHOP') {
+            $shopId = $destinationId;
+        } elseif ($shopId <= 0 && str_starts_with($destinationType, 'SHOP_')) {
+            $shopId = (int)substr($destinationType, 5);
+        }
+        if ($shopId <= 0) {
+            $shopId = (int)($allocation['shop_id'] ?? 0);
+            $destinationType = strtoupper(trim((string)($allocation['destination_type'] ?? '')));
+            $destinationId = (int)($allocation['destination_id'] ?? 0);
+            if ($shopId <= 0 && $destinationType === 'SHOP') {
+                $shopId = $destinationId;
+            } elseif ($shopId <= 0 && str_starts_with($destinationType, 'SHOP_')) {
+                $shopId = (int)substr($destinationType, 5);
+            }
+        }
+        $shopId = $shopId > 0 ? $shopId : 1;
         $shop = Database::fetchOne("SELECT * FROM shops WHERE id = ?", [$shopId]);
         if (!$shop) {
             $shop = ['id' => $shopId, 'name' => 'Flagship Retail Store', 'code' => 'SH-01'];

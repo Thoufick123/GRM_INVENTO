@@ -1,5 +1,6 @@
 <?php
 $canInward = hasPermission('shop_inward', 'verify') || hasPermission('shop_inward', 'receive') || hasPermission('shop_inward', 'create');
+$hasMultipleShops = count($shops ?? []) > 1;
 ?>
 <style>
 .custom-inward-pills .nav-link {
@@ -280,15 +281,15 @@ $canInward = hasPermission('shop_inward', 'verify') || hasPermission('shop_inwar
                             <!-- Card Footer -->
                             <div class="card-footer bg-light py-2 px-3 d-flex justify-content-between align-items-center gap-1">
                                 <?php if ($isFullyReceived || !$canInward): ?>
-                                    <a href="<?= url('shop/inward/view/' . $a['id']) ?>" class="btn btn-sm btn-outline-primary flex-grow-1 py-1">
+                                    <a href="<?= url('shop/inward/view/' . $a['id']) . $shopQuery ?>" class="btn btn-sm btn-outline-primary flex-grow-1 py-1">
                                         <i class="bi bi-eye me-1"></i> View Inward
                                     </a>
                                 <?php elseif ($isPartiallyReceived): ?>
-                                    <a href="<?= url('shop/inward/view/' . $a['id']) ?>" class="btn btn-sm btn-warning text-dark fw-semibold flex-grow-1 py-1">
+                                    <a href="<?= url('shop/inward/view/' . $a['id']) . $shopQuery ?>" class="btn btn-sm btn-warning text-dark fw-semibold flex-grow-1 py-1">
                                         <i class="bi bi-qr-code-scan me-1"></i> Continue Inward (<?= $missingQty ?> missing)
                                     </a>
                                 <?php else: ?>
-                                    <a href="<?= url('shop/inward/view/' . $a['id']) ?>" class="btn btn-sm btn-danger fw-semibold flex-grow-1 py-1">
+                                    <a href="<?= url('shop/inward/view/' . $a['id']) . $shopQuery ?>" class="btn btn-sm btn-danger fw-semibold flex-grow-1 py-1">
                                         <i class="bi bi-qr-code-scan me-1"></i> Cross-Check &amp; Inward
                                     </a>
                                 <?php endif; ?>
@@ -309,7 +310,7 @@ $canInward = hasPermission('shop_inward', 'verify') || hasPermission('shop_inwar
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body p-3">
         <form method="GET" action="<?= url('shop/inward') ?>" class="row g-2 align-items-end" id="inwardFilterForm">
-            <div class="col-12 col-sm-6 col-lg-4">
+            <div class="col-12 col-sm-6 <?= $hasMultipleShops ? 'col-lg-3' : 'col-lg-4' ?>">
                 <label class="form-label small fw-semibold text-muted mb-1">Search Filter</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text bg-white"><i class="bi bi-search text-secondary"></i></span>
@@ -318,7 +319,20 @@ $canInward = hasPermission('shop_inward', 'verify') || hasPermission('shop_inwar
                            value="<?= e($search ?? '') ?>" autocomplete="off">
                 </div>
             </div>
-            <div class="col-12 col-sm-6 col-lg-4">
+            <?php if ($hasMultipleShops): ?>
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <label class="form-label small fw-semibold text-muted mb-1">Destination Shop</label>
+                    <select name="shop_id" id="inwardShopSelect" class="form-select form-select-sm">
+                        <option value="0" <?= (int)$selectedShopId === 0 ? 'selected' : '' ?>>All Shops</option>
+                        <?php foreach ($shops as $availableShop): ?>
+                            <option value="<?= (int)$availableShop['id'] ?>" <?= (int)$selectedShopId === (int)$availableShop['id'] ? 'selected' : '' ?>>
+                                <?= e($availableShop['name']) ?><?= !empty($availableShop['code']) ? ' (' . e($availableShop['code']) . ')' : '' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
+            <div class="col-12 col-sm-6 <?= $hasMultipleShops ? 'col-lg-3' : 'col-lg-4' ?>">
                 <label class="form-label small fw-semibold text-muted mb-1">Source Warehouse</label>
                 <select name="warehouse_id" id="inwardWarehouseSelect" class="form-select form-select-sm">
                     <option value="">All Warehouses</option>
@@ -338,10 +352,10 @@ $canInward = hasPermission('shop_inward', 'verify') || hasPermission('shop_inwar
                     <option value="RECEIVED" <?= in_array(($status ?? ''), ['RECEIVED', 'COMPLETED', 'DELIVERED']) ? 'selected' : '' ?>>RECEIVED (Stock Credited)</option>
                 </select>
             </div>
-            <div class="col-4 col-sm-2 col-lg-2">
+            <div class="col-4 col-sm-2 <?= $hasMultipleShops ? 'col-lg-1' : 'col-lg-2' ?>">
                 <div class="btn-group btn-group-sm w-100" role="group">
                     <button type="submit" class="btn btn-primary" title="Apply Filter"><i class="bi bi-funnel-fill"></i></button>
-                    <a href="<?= url('shop/inward') ?>" class="btn btn-outline-secondary" title="Reset Filters"><i class="bi bi-arrow-clockwise"></i></a>
+                    <a href="<?= url('shop/inward') . $shopQuery ?>" class="btn btn-outline-secondary" title="Reset Filters"><i class="bi bi-arrow-clockwise"></i></a>
                 </div>
             </div>
         </form>
@@ -415,8 +429,8 @@ $canInward = hasPermission('shop_inward', 'verify') || hasPermission('shop_inwar
                                             <span class="badge bg-warning text-dark border border-warning font-monospace fs-8"><?= e($a['warehouse_code'] ?? 'WH') ?></span>
                                         </div>
                                         <div class="p-1 dest-badge-box d-flex align-items-center justify-content-between gap-1">
-                                            <span class="small fw-semibold text-primary text-truncate"><i class="bi bi-shop me-1"></i>To: <?= e($shop['name'] ?? 'Shop') ?></span>
-                                            <span class="badge bg-primary text-white font-monospace fs-8"><?= e($shop['code'] ?? 'SHOP') ?></span>
+                                            <span class="small fw-semibold text-primary text-truncate"><i class="bi bi-shop me-1"></i>To: <?= e($a['destination_shop_name'] ?? $shop['name'] ?? 'Shop') ?></span>
+                                            <span class="badge bg-primary text-white font-monospace fs-8"><?= e($a['destination_shop_code'] ?? $shop['code'] ?? 'SHOP') ?></span>
                                         </div>
                                     </div>
                                 </td>
@@ -444,7 +458,7 @@ $canInward = hasPermission('shop_inward', 'verify') || hasPermission('shop_inwar
                                 </td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-1">
-                                        <a href="<?= url('shop/inward/view/' . $a['id']) ?>" class="btn btn-sm <?= ((!$isRecv || $isPartial) && $canInward) ? ($isPartial ? 'btn-warning text-dark fw-semibold' : 'btn-primary fw-semibold') : 'btn-outline-primary' ?>">
+                                        <a href="<?= url('shop/inward/view/' . $a['id']) . $shopQuery ?>" class="btn btn-sm <?= ((!$isRecv || $isPartial) && $canInward) ? ($isPartial ? 'btn-warning text-dark fw-semibold' : 'btn-primary fw-semibold') : 'btn-outline-primary' ?>">
                                             <i class="bi <?= ((!$isRecv || $isPartial) && $canInward) ? 'bi-qr-code-scan' : 'bi-eye' ?> me-1"></i>
                                             <?= ((!$isRecv || $isPartial) && $canInward) ? ($isPartial ? 'Continue Inward' : 'Cross-Check &amp; Inward') : 'View Inward' ?>
                                         </a>

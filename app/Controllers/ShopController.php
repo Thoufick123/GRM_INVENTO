@@ -1620,31 +1620,56 @@ class ShopController {
         require_once BASE_PATH . '/app/Models/WarehouseAllocation.php';
         require_once BASE_PATH . '/app/Models/Warehouse.php';
 
-        $shop = ShopService::getActiveShop();
-        $shopId = (int)$shop['id'];
+        $shops = function_exists('getScopedShops') ? getScopedShops() : [ShopService::getActiveShop()];
+        $scopedShopId = function_exists('currentShopId') ? currentShopId() : null;
+        $requestedShopId = isset($_GET['shop_id']) ? (int)$_GET['shop_id'] : null;
+        if ($scopedShopId !== null) {
+            $shop = ShopService::getActiveShop();
+            $shopId = (int)$shop['id'];
+        } elseif ($requestedShopId === null && count($shops) > 1) {
+            $shop = ShopService::getActiveShop();
+            $shopId = 0;
+        } elseif ($requestedShopId !== null && $requestedShopId <= 0) {
+            $shop = ShopService::getActiveShop();
+            $shopId = 0;
+        } else {
+            $shop = ShopService::getActiveShop($requestedShopId);
+            $shopId = (int)$shop['id'];
+        }
         $warehouseId = $_GET['warehouse_id'] ?? '';
         $search = trim($_GET['search'] ?? '');
         $status = $_GET['status'] ?? '';
 
+        $destinationShopIdSql = "COALESCE(
+            NULLIF(ao.shop_id, 0),
+            CASE WHEN ao.destination_type = 'SHOP' THEN NULLIF(ao.destination_id, 0) END,
+            CASE WHEN LEFT(UPPER(ao.destination_type), 5) = 'SHOP_' THEN CAST(SUBSTRING(ao.destination_type, 6) AS UNSIGNED) END,
+            NULLIF(wa.shop_id, 0),
+            CASE WHEN wa.destination_type = 'SHOP' THEN NULLIF(wa.destination_id, 0) END,
+            CASE WHEN LEFT(UPPER(wa.destination_type), 5) = 'SHOP_' THEN CAST(SUBSTRING(wa.destination_type, 6) AS UNSIGNED) END
+        )";
         $sql = "SELECT wa.*, 
                        w.name as warehouse_name, w.code as warehouse_code,
                        ao.outward_number, ao.vehicle_number, ao.driver_name, ao.driver_contact, ao.transporter_name, ao.lr_number, ao.total_boxes, ao.dispatch_date,
                        (SELECT COUNT(*) FROM allocation_items WHERE allocation_id = wa.id) as item_count,
                        (SELECT COALESCE(SUM(requested_qty), 0) FROM allocation_items WHERE allocation_id = wa.id) as total_requested_qty,
                        (SELECT COALESCE(SUM(dispatched_qty), 0) FROM allocation_items WHERE allocation_id = wa.id) as total_dispatched_qty,
-                       u_prep.full_name as prepared_by_name
+                       u_prep.full_name as prepared_by_name,
+                       destination_shop.name as destination_shop_name,
+                       destination_shop.code as destination_shop_code
                 FROM warehouse_allocations wa
                 JOIN warehouses w ON wa.warehouse_id = w.id
                 LEFT JOIN allocation_outwards ao ON wa.id = ao.allocation_id
+                LEFT JOIN shops destination_shop ON destination_shop.id = $destinationShopIdSql
                 LEFT JOIN users u_prep ON wa.requested_by = u_prep.id
-                WHERE COALESCE(
-                          NULLIF(ao.shop_id, 0),
-                          CASE WHEN ao.destination_type = 'SHOP' THEN NULLIF(ao.destination_id, 0) END,
-                          NULLIF(wa.shop_id, 0),
-                          CASE WHEN wa.destination_type = 'SHOP' THEN NULLIF(wa.destination_id, 0) END
-                      ) = ?
-                  AND wa.status NOT IN ('REQUESTED', 'PENDING', 'CANCELLED', 'REJECTED')";
-        $params = [$shopId];
+                WHERE wa.status NOT IN ('REQUESTED', 'PENDING', 'CANCELLED', 'REJECTED')
+                  AND $destinationShopIdSql > 0";
+        $params = [];
+
+        if ($shopId > 0) {
+            $sql .= " AND $destinationShopIdSql = ?";
+            $params[] = $shopId;
+        }
 
         if (!empty($warehouseId)) {
             $sql .= " AND wa.warehouse_id = ?";
@@ -1744,11 +1769,14 @@ class ShopController {
             'activeModule'           => 'shop',
             'activeMenu'             => 'shop-inward',
             'shop'                   => $shop,
+            'shops'                  => $shops,
             'allocations'            => $allocations,
             'warehouses'             => $warehouses,
             'warehouseId'            => $warehouseId,
             'status'                 => $status,
             'search'                 => $search,
+            'selectedShopId'         => $shopId,
+            'shopQuery'              => '?shop_id=' . $shopId,
             'pendingInwardsCount'    => $pendingInwardsCount,
             'totalPendingMissingQty' => $totalPendingMissingQty,
             'receivedInwardsCount'   => $receivedInwardsCount,
@@ -1776,6 +1804,13 @@ class ShopController {
 
         if (!$details) {
             Session::setFlash('error', 'Inward allocation consignment not found.');
+            Response::redirect(url('shop/inward'));
+            return;
+        }
+
+        $scopedShopId = function_exists('currentShopId') ? currentShopId() : null;
+        if ($scopedShopId !== null && (int)($details['shop']['id'] ?? 0) !== $scopedShopId) {
+            Session::setFlash('error', 'This inward allocation is not assigned to your shop.');
             Response::redirect(url('shop/inward'));
             return;
         }
@@ -1812,8 +1847,6 @@ class ShopController {
             return;
         }
 
-        $shop = ShopService::getActiveShop();
-        $shopId = (int)$shop['id'];
         $notes = trim($_POST['notes'] ?? '');
 
         $receivedItems = null;
@@ -1839,6 +1872,16 @@ class ShopController {
         }
 
         try {
+            $details = ShopService::getInwardAllocationDetails($allocationId);
+            if (!$details) {
+                throw new Exception("Allocation Pass #$allocationId not found.");
+            }
+            $shopId = (int)($details['shop']['id'] ?? 0);
+            $scopedShopId = function_exists('currentShopId') ? currentShopId() : null;
+            if ($shopId <= 0 || ($scopedShopId !== null && $scopedShopId !== $shopId)) {
+                throw new Exception('This inward allocation is not assigned to your shop.');
+            }
+
             $userId = Session::userId() ?? 1;
             ShopService::receiveShopAllocation($allocationId, $shopId, $userId, $notes, $receivedItems);
 
