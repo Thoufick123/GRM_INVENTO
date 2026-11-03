@@ -158,7 +158,7 @@
                             <?php $productType = strtoupper((string)($product['product_type'] ?? 'NORMAL')); ?>
                             <td>
                                 <span class="badge rounded-pill <?= $productType === 'SERIES' ? 'bg-info-subtle text-info-emphasis' : ($productType === 'COMPLEMENTARY' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-primary-subtle text-primary') ?>">
-                                    <?= e(ucfirst(strtolower($productType))) ?>
+                                    <?= $productType === 'SERIES' ? 'Series Pack' : ($productType === 'COMPLEMENTARY' ? 'Complementary' : 'Individual Piece') ?>
                                 </span>
                             </td>
                             <td><?= e($product['variant_name'] ?? 'Standard') ?></td>

@@ -14428,7 +14428,12 @@ class WarehouseController {
                     COALESCE(wc.name, '') AS category_name,
                     COALESCE(wsc.name, '') AS subcategory_name,
                     COALESCE(wss.name, '') AS sub_subcategory_name,
-                    COALESCE(wc.category_type, 'NORMAL') AS product_type,
+                    CASE
+                        WHEN COALESCE(pv.is_complementary, 0) = 1 OR COALESCE(p.is_complementary, 0) = 1 THEN 'COMPLEMENTARY'
+                        WHEN pv.qr_type = 'SERIES_BATCH' OR COALESCE(pv.pack_quantity, 1) > 1 THEN 'SERIES'
+                        WHEN UPPER(COALESCE(wc.category_type, '')) IN ('SERIES', 'COMPLEMENTARY') THEN UPPER(wc.category_type)
+                        ELSE 'NORMAL'
+                    END AS product_type,
                     COALESCE(p.hsn_code, '') AS hsn_code,
                     COALESCE(pv.weight, p.weight, 0) AS weight,
                     COALESCE(pv.mrp, 0) AS mrp,
