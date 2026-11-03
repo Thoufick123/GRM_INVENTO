@@ -1,8 +1,6 @@
 <?php
 // views/warehouse/shop_requests/index.php
 $activeTab = $activeTab ?? 'shop';
-$canCreateShopRequest = hasPermission('shop_requests', 'create');
-$canCreateWhatsappRequest = hasPermission('whatsapp_orders', 'create');
 $canViewAllocations = hasPermission('allocation', 'view');
 $canPrintGatepass = hasPermission('allocation_outward', 'gatepass');
 ?>
@@ -22,30 +20,6 @@ $canPrintGatepass = hasPermission('allocation_outward', 'gatepass');
             <a href="<?= url('warehouse/allocation') ?>" class="btn btn-outline-secondary">
                 <i class="bi bi-boxes me-1"></i> All Allocations
             </a>
-        <?php endif; ?>
-        
-        <?php if ($canCreateShopRequest || $canCreateWhatsappRequest): ?>
-        <div class="dropdown">
-            <button class="btn btn-primary dropdown-toggle shadow-sm fw-semibold" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-plus-lg me-1"></i> New Stock Request
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow border-0">
-                <?php if ($canCreateShopRequest): ?>
-                    <li>
-                        <a class="dropdown-item py-2" href="<?= url('warehouse/shop-requests/create') ?>">
-                            <i class="bi bi-shop text-primary me-2"></i> New Shop Stock Request
-                        </a>
-                    </li>
-                <?php endif; ?>
-                <?php if ($canCreateWhatsappRequest): ?>
-                    <li>
-                        <a class="dropdown-item py-2" href="<?= url('warehouse/whatsapp-orders/requests/create') ?>">
-                            <i class="bi bi-whatsapp text-success me-2"></i> New WhatsApp Request
-                        </a>
-                    </li>
-                <?php endif; ?>
-            </ul>
-        </div>
         <?php endif; ?>
     </div>
 </div>

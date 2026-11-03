@@ -1280,7 +1280,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const swapSelect = document.getElementById('swap_' + itemId);
         if (!swapSelect) return;
 
-        fetch('<?= url($returnApiPath) ?>?q=' + encodeURIComponent(rawCode))
+        fetch('<?= url($returnApiPath) ?>?q=' + encodeURIComponent(rawCode) + '<?= $isWebsiteReturns ? '&available_only=1' : '' ?>')
             .then(r => r.json())
             .then(res => {
                 const variant = res && (res.variant || res.data || res.product);
@@ -1289,6 +1289,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const available = Number(variant.stock || 0);
                 if (available < quantity) {
                     alert(`This replacement has only ${available} available in <?= e($returnChannelLabel) ?> stock; ${quantity} requested.`);
+                    return;
+                }
+                if (<?= $isWebsiteReturns ? 'true' : 'false' ?> && !variant.aggregate_stock && quantity !== 1) {
+                    alert('Normal Website products must be exchanged one scanned QR piece at a time.');
                     return;
                 }
 

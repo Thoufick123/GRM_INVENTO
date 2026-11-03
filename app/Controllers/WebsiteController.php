@@ -3574,8 +3574,38 @@ class WebsiteController {
 
         if ($foundVariant) {
             $stock = 0.0;
-            foreach ($this->getWebsiteChannelIds() as $websiteChannelId) {
+            $websiteChannelIds = $this->getWebsiteChannelIds();
+            foreach ($websiteChannelIds as $websiteChannelId) {
                 $stock += (float)StockService::getBalance((int)$foundVariant['id'], 'CHANNEL', (int)$websiteChannelId, 'AVAILABLE');
+            }
+            $isAggregateStock = $this->isAggregateStockVariant((int)$foundVariant['id']);
+
+            if (($_REQUEST['available_only'] ?? '') === '1') {
+                if ($stock < 1) {
+                    echo json_encode(['success' => false, 'message' => 'This product has no available Website stock.']);
+                    return;
+                }
+
+                if (!$isAggregateStock) {
+                    $pieceTags = $this->resolveChannelPieceTags(
+                        (int)($websiteChannelIds[0] ?? 0),
+                        (int)$foundVariant['id'],
+                        $websiteChannelIds,
+                        'WEBSITE'
+                    )['available'];
+                    $availableTagKeys = array_map(
+                        static fn($tag) => strtoupper(trim((string)$tag)),
+                        $pieceTags
+                    );
+                    $scannedTagKeys = array_unique([
+                        strtoupper(trim((string)$matchedTagCode)),
+                        strtoupper(trim((string)$extractedTag)),
+                    ]);
+                    if (!array_intersect($scannedTagKeys, $availableTagKeys)) {
+                        echo json_encode(['success' => false, 'message' => 'This QR code is not available Website stock. Scan an available product QR code.']);
+                        return;
+                    }
+                }
             }
 
             echo json_encode([
@@ -3593,6 +3623,7 @@ class WebsiteController {
                     'mrp'           => (float)$foundVariant['mrp'],
                     'price'         => (float)($foundVariant['selling_price'] ?: $foundVariant['mrp']),
                     'stock'         => $stock,
+                    'aggregate_stock' => $isAggregateStock,
                 ]
             ]);
             return;
@@ -3658,6 +3689,7 @@ class WebsiteController {
         $replacementStockPlan = [];
         $replacementStockDispatched = [];
         $replacementTagsSeen = [];
+        $availableReplacementTagsByVariant = [];
         $totalReturnVal = 0.0;
         $totalReplacementVal = 0.0;
 
@@ -3771,10 +3803,33 @@ class WebsiteController {
                 }
 
                 $normalizedTag = strtoupper($replacementTag);
-                $validReplacementTag = $normalizedTag === strtoupper((string)$replacement['sku'])
-                    || ($replacement['qr_code'] && $normalizedTag === strtoupper((string)$replacement['qr_code']));
+                $isAggregateReplacement = $this->isAggregateStockVariant($swapVariantId);
+                if (!$isAggregateReplacement && $qty !== 1) {
+                    Session::flash('error', 'Normal Website products must be exchanged one scanned QR piece at a time.');
+                    Response::redirect(url('warehouse/website-orders/returns'));
+                    return;
+                }
                 $isUniquePieceTag = false;
-                if (!$validReplacementTag) {
+                if ($isAggregateReplacement) {
+                    $validReplacementTag = $normalizedTag === strtoupper((string)$replacement['sku'])
+                        || ($replacement['qr_code'] && $normalizedTag === strtoupper((string)$replacement['qr_code']));
+                } else {
+                    if (!array_key_exists($swapVariantId, $availableReplacementTagsByVariant)) {
+                        $availableReplacementTagsByVariant[$swapVariantId] = $this->resolveChannelPieceTags(
+                            (int)($websiteChannelIds[0] ?? 0),
+                            $swapVariantId,
+                            $websiteChannelIds,
+                            'WEBSITE'
+                        )['available'];
+                    }
+                    $availableTagKeys = array_map(
+                        static fn($tag) => strtoupper(trim((string)$tag)),
+                        $availableReplacementTagsByVariant[$swapVariantId]
+                    );
+                    $validReplacementTag = in_array($normalizedTag, $availableTagKeys, true);
+                    $isUniquePieceTag = $validReplacementTag;
+                }
+                if ($isAggregateReplacement && !$validReplacementTag) {
                     $channelPlaceholders = implode(',', array_fill(0, count($websiteChannelIds), '?'));
                     $allocationRows = Database::fetchAll(
                         "SELECT ai.selected_qr_codes FROM allocation_items ai
