@@ -207,7 +207,8 @@ INSERT INTO `permissions` (`id`, `module`, `action`, `description`, `created_at`
 ('175', 'master', 'create', 'Add Master Attribute (Category, Size, Color, Unit)', '2026-09-23 16:41:13', NULL),
 ('176', 'master', 'edit', 'Edit Master Attribute Name / Code', '2026-09-23 16:41:13', NULL),
 ('177', 'master', 'delete', 'Delete Master Attribute Entry', '2026-09-23 16:41:13', NULL),
-('276', 'labels', 'delete', 'Delete Garment Label Batch', '2026-10-14 10:20:00', 'labels.delete');
+('276', 'labels', 'delete', 'Delete Garment Label Batch', '2026-10-14 10:20:00', 'labels.delete'),
+('277', 'stock', 'edit', 'Edit warehouse stock prices (MRP and selling price)', '2026-11-03 00:00:00', 'stock.edit');
 UNLOCK TABLES;
 
 -- --------------------------------------------------------
