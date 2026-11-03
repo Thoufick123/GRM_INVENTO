@@ -143,12 +143,12 @@ function url(string $path = ''): string {
         } else {
             $pathPrefix = parse_url($configuredUrl, PHP_URL_PATH);
             if (empty($pathPrefix) || $pathPrefix === '/') {
-                $pathPrefix = '/grm_inventory';
+                $pathPrefix = '';
             }
         }
         $baseUrl = $protocol . '://' . $host . rtrim($pathPrefix, '/');
     } else {
-        $baseUrl = !empty($configuredUrl) ? rtrim($configuredUrl, '/') : 'http://localhost/grm_inventory';
+        $baseUrl = !empty($configuredUrl) ? rtrim($configuredUrl, '/') : 'http://localhost';
     }
     $cleanPath = ltrim($path, '/');
     if (str_starts_with($cleanPath, 'uploads/')) {
