@@ -70,12 +70,15 @@ $pAction = $exchange['payment_action'] ?? 'NONE';
                     </span>
                 </div>
                 <h3 class="fw-bold mb-0 text-dark"><?= e($return['warehouse_name'] ?? 'Central Distribution Warehouse') ?></h3>
-                <p class="text-muted small mb-0"><?= e($return['warehouse_address'] ?? 'Warehouse Complex, Ring Road, Tirupur, Tamil Nadu') ?></p>
-                <small class="text-secondary">Phone: <?= e($return['warehouse_phone'] ?? '+91 98765 00002') ?></small>
             </div>
             <div class="text-end">
                 <h4 class="fw-bold text-primary font-monospace mb-1"><?= e($return['return_number']) ?></h4>
-                <div class="small text-muted">Date: <strong><?= date('d M Y, h:i A', strtotime($return['created_at'])) ?></strong></div>
+                <?php
+                $invoiceCreatedAt = $isExchange
+                    ? ($exchange['created_at'] ?? $return['created_at'] ?? null)
+                    : ($return['created_at'] ?? null);
+                ?>
+                <div class="small text-muted">Date: <strong><?= e(formatUtcDateTime($invoiceCreatedAt, 'd M Y, h:i A')) ?></strong></div>
                 <div class="small text-muted">Original PO: <strong class="text-dark font-monospace"><?= e($return['po_number'] ?? 'PO-Direct') ?></strong></div>
                 <div class="small text-muted">Status: <span class="badge bg-success rounded-pill px-2 py-0.5">COMPLETED</span></div>
             </div>
@@ -86,7 +89,6 @@ $pAction = $exchange['payment_action'] ?? 'NONE';
             <div class="col-sm-6">
                 <span class="text-muted text-uppercase small d-block font-monospace" style="font-size: 11px;">Customer Information</span>
                 <strong class="text-dark fs-6 d-block"><?= e($return['customer_name'] ?? 'Direct Walk-in Customer') ?></strong>
-                <span class="text-secondary small font-monospace d-block">Phone: <?= e($return['customer_phone'] ?? '-') ?></span>
                 <?php if (!empty($return['customer_city'])): ?>
                 <span class="text-muted small d-block"><?= e($return['customer_city']) ?>, <?= e($return['customer_state'] ?? '') ?></span>
                 <?php endif; ?>
