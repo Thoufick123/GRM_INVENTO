@@ -3,14 +3,22 @@
         <h2 class="mb-1"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Shop Returns &amp; Exchanges</h2>
         <span class="text-muted">Process retail POS returns, size &amp; color exchanges, and refunds for Shop customers</span>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
-        <?php if (hasPermission('shop_returns', 'create')): ?>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newReturnModal">
-            <i class="bi bi-plus-circle me-1"></i> New Return / Exchange
-        </button>
-        <?php endif; ?>
+</div>
+
+<?php if (hasPermission('shop_returns', 'create') || hasPermission('shop_returns', 'process')): ?>
+<div class="card border-0 shadow-sm rounded-3 mb-4 bg-white" style="border-top:3px solid #198754 !important;">
+    <div class="card-body p-3">
+        <label class="form-label small fw-semibold text-dark mb-2"><i class="bi bi-search text-success me-1"></i>Search Shop Customer Order</label>
+        <div class="input-group input-group-lg mb-2" style="max-width:590px;">
+            <span class="input-group-text bg-white border-end-0"><i class="bi bi-qr-code-scan text-success"></i></span>
+            <input id="shopPageLookupInput" type="text" class="form-control border-start-0" placeholder="Phone number, invoice number, or customer name">
+            <button id="shopPageLookupBtn" class="btn btn-success px-4 fw-semibold" type="button">Lookup Order</button>
+        </div>
+        <div id="shopPageLookupMessage" class="small text-primary fw-semibold mb-2" style="display:none;"></div>
+        <div id="shopPageInvoiceList" class="list-group" style="display:none; max-height:245px; overflow:auto;"></div>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Summary Metrics Chips -->
 <div class="row g-3 mb-4">
@@ -239,44 +247,37 @@
 <div class="modal fade" id="newReturnModal" tabindex="-1" aria-labelledby="newReturnModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg" style="border-radius:16px; overflow:hidden;">
-            <!-- Modal Header -->
             <div class="modal-header border-bottom py-3 px-4 bg-white d-flex justify-content-between align-items-start position-relative">
                 <div>
                     <div class="d-flex align-items-center gap-2 mb-1">
-                        <span class="badge bg-primary text-white rounded-pill font-monospace" style="font-size:10px; padding:3px 8px;">
+                        <span class="badge bg-success text-white rounded-pill font-monospace" style="font-size:10px; padding:3px 8px;">
                             <i class="bi bi-shop me-1"></i>SHOP RETAIL POS
                         </span>
                         <span class="text-muted small">Return &amp; Exchange Portal</span>
                     </div>
-                    <h5 class="modal-title fw-bold text-dark mb-0" id="newReturnModalLabel">
-                        Step 2: Select Items &amp; Action Type
-                    </h5>
+                    <h5 class="modal-title fw-bold text-dark mb-0" id="newReturnModalLabel">Step 2: Select Items &amp; Action Type</h5>
                 </div>
-                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close" style="font-size:1.1rem; opacity:0.75; transition:opacity 0.2s;"></button>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-
             <div class="modal-body p-4 bg-light-subtle">
                 <!-- Search Input Section -->
-                <div class="card border-0 shadow-sm mb-4" style="border-radius:12px;">
+                <div id="shopReturnSearchCard" class="card border-0 shadow-sm rounded-3 mb-4 bg-white" style="border-top:3px solid #198754 !important;">
                     <div class="card-body p-3">
-                        <label class="form-label fw-bold text-dark mb-2" style="font-size:13px;">
-                            <i class="bi bi-search text-primary me-1"></i>Step 1: Search Shop Order / Customer
-                        </label>
-                        <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
-                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-upc-scan text-primary fs-5"></i></span>
-                            <input type="text" id="orderSearchInput" class="form-control border-start-0 font-monospace fw-bold" 
-                                   placeholder="Type Shop Invoice # (e.g. POS-..., INV-...), Customer Phone, or Name..." style="font-size:14px;">
-                            <button class="btn btn-primary px-4 fw-bold" type="button" id="btnSearchOrder">
-                                <i class="bi bi-search me-1"></i> Lookup Order
+                        <label class="form-label small fw-semibold text-dark mb-2"><i class="bi bi-search text-success me-1"></i>Search Shop Customer Order</label>
+                        <div class="input-group input-group-lg mb-2" style="max-width:590px;">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-qr-code-scan text-success"></i></span>
+                            <input type="text" id="orderSearchInput" class="form-control border-start-0" placeholder="Phone number, invoice number, or customer name">
+                            <button class="btn btn-success px-4 fw-semibold" type="button" id="btnSearchOrder">
+                                Lookup Order
                             </button>
                         </div>
-                    </div>
-                </div>
-
-                <div id="invoiceSelectionContainer" class="card border-0 shadow-sm mb-4 d-none">
-                    <div class="card-body">
-                        <div class="fw-bold text-dark mb-2">Select the invoice to process</div>
-                        <div id="invoiceSelectionList" class="list-group"></div>
+                        <div id="shopReturnLookupMessage" class="small text-primary fw-semibold mb-2 d-none"></div>
+                        <div id="invoiceSelectionContainer" class="card border-0 shadow-sm mb-4 d-none">
+                            <div class="card-body">
+                                <div class="fw-bold text-dark mb-2">Select the invoice to process</div>
+                                <div id="invoiceSelectionList" class="list-group"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -785,6 +786,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const rowPieceTagsMap = {};
 
+    if (!btnSearch || !searchInput) return;
     btnSearch.addEventListener('click', performLookup);
     searchInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
@@ -1203,6 +1205,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (searchInput) searchInput.focus();
     };
 
+    const newReturnModalEl = document.getElementById('newReturnModal');
+    if (newReturnModalEl) {
+        newReturnModalEl.addEventListener('hidden.bs.modal', resetLookupSearch);
+    }
+
     function escapeReturnHtml(value) {
         return String(value || '').replace(/[&<>"']/g, character => ({
             '&': '&amp;',
@@ -1211,13 +1218,6 @@ document.addEventListener('DOMContentLoaded', function() {
             '"': '&quot;',
             "'": '&#039;'
         })[character]);
-    }
-
-    const newReturnModalEl = document.getElementById('newReturnModal');
-    if (newReturnModalEl) {
-        newReturnModalEl.addEventListener('hidden.bs.modal', function() {
-            resetLookupSearch();
-        });
     }
 
     document.getElementById('processReturnForm').addEventListener('submit', function(e) {
@@ -1270,6 +1270,87 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.appendChild(hidden);
             }
         });
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('shopPageLookupInput');
+    const button = document.getElementById('shopPageLookupBtn');
+    const message = document.getElementById('shopPageLookupMessage');
+    const list = document.getElementById('shopPageInvoiceList');
+    if (!input || !button || !message || !list) return;
+
+    function lookupInvoices() {
+        const query = input.value.trim();
+        if (!query) {
+            message.textContent = 'Enter a phone number or invoice number.';
+            message.style.display = 'block';
+            return;
+        }
+
+        button.disabled = true;
+        list.style.display = 'none';
+        list.innerHTML = '';
+        message.textContent = 'Searching customer invoices...';
+        message.style.display = 'block';
+
+        fetch('<?= url('shop/returns/lookup') ?>?q=' + encodeURIComponent(query))
+            .then(response => response.json())
+            .then(result => {
+                button.disabled = false;
+                if (!result.success || !result.data) {
+                    message.textContent = result.message || 'No shop invoices found.';
+                    return;
+                }
+
+                const orders = Array.isArray(result.data) ? result.data : [result.data];
+                message.textContent = `This customer has ${orders.length} invoice${orders.length === 1 ? '' : 's'}. Select a bill to continue.`;
+
+                orders.forEach(order => {
+                    const sale = order.sale || order;
+                    const used = Number(sale.return_exchange_used || 0) === 1;
+                    const row = document.createElement('button');
+                    row.type = 'button';
+                    row.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2';
+                    row.disabled = used;
+
+                    const invoice = document.createElement('span');
+                    invoice.className = 'font-monospace text-primary fw-semibold flex-grow-1';
+                    invoice.textContent = sale.invoice_number || '-';
+                    const customer = document.createElement('span');
+                    customer.className = 'text-muted small';
+                    customer.textContent = `${sale.customer_name || 'Shop Customer'} · ${sale.created_at || ''}`;
+                    const total = document.createElement('span');
+                    total.className = 'fw-semibold text-success';
+                    total.textContent = '₹' + Number(sale.total_amount || 0).toFixed(2);
+                    const status = document.createElement('span');
+                    status.className = used ? 'btn btn-sm btn-outline-secondary' : 'btn btn-sm btn-outline-success';
+                    status.textContent = used ? 'Already Used' : 'Select Bill';
+
+                    row.append(invoice, customer, total, status);
+                    row.addEventListener('click', function() {
+                        document.getElementById('orderSearchInput').value = sale.invoice_number || '';
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('newReturnModal')).show();
+                        document.getElementById('btnSearchOrder').click();
+                    });
+                    list.appendChild(row);
+                });
+
+                list.style.display = 'block';
+            })
+            .catch(() => {
+                button.disabled = false;
+                message.textContent = 'Unable to lookup invoices right now.';
+                message.style.display = 'block';
+            });
+    }
+
+    button.addEventListener('click', lookupInvoices);
+    input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            lookupInvoices();
+        }
     });
 });
 </script>
