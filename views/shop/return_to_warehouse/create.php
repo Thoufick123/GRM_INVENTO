@@ -1502,17 +1502,20 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         const normalizedCandidates = [...new Set(scanCandidates.map(candidate => candidate.toLowerCase()))];
-        const damagedTagRow = rows.find(candidate => {
+        const damagedTagRows = rows.filter(candidate => {
             const tags = JSON.parse(candidate.getAttribute('data-damaged-piece-tags') || '[]')
                 .map(tag => String(tag).trim().toLowerCase());
             return tags.some(tag => normalizedCandidates.includes(tag));
         });
-        if (damagedTagRow) {
+        if (damagedTagRows.length > 0) {
             if (selectedStockPool !== 'DAMAGED') {
                 damageScanStatus.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle me-1"></i>This QR is assigned to Damage Management. Select Damaged Stock to scan it.</span>';
                 return;
             }
-            if (damagedTagRow.getAttribute('data-stock-state') !== 'DAMAGED') {
+            const damagedTagRow = damagedTagRows.find(candidate =>
+                (candidate.getAttribute('data-stock-state') || '').toUpperCase() === 'DAMAGED'
+            );
+            if (!damagedTagRow) {
                 damageScanStatus.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle me-1"></i>This damage-tagged piece has no damaged stock balance available for return.</span>';
                 return;
             }
