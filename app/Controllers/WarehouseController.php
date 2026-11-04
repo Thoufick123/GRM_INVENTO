@@ -3028,9 +3028,11 @@ class WarehouseController {
                     OR pv.qr_code = ? 
                     OR p.code = ?
                     OR p.qr_code_prefix = ?
+                    OR UPPER(pv.series_start_code) = UPPER(?)
+                    OR UPPER(pv.series_end_code) = UPPER(?)
                     OR (pv.id = ? AND ? > 0)
                  LIMIT 1",
-                [$c, $c, $c, $c, is_numeric($c) ? (int)$c : 0, is_numeric($c) ? (int)$c : 0]
+                [$c, $c, $c, $c, $c, $c, is_numeric($c) ? (int)$c : 0, is_numeric($c) ? (int)$c : 0]
             );
             if ($variant) break;
         }
@@ -3507,7 +3509,15 @@ class WarehouseController {
                  LIMIT 1",
                 [$extractedTag, (int)$variant['id'], $warehouseId, $warehouseId]
             );
-            if (!$registeredPackQr) {
+            $matchesVariantPackCode = in_array(
+                strtoupper(trim($extractedTag)),
+                array_map('strtoupper', array_filter([
+                    trim((string)($variant['series_start_code'] ?? '')),
+                    trim((string)($variant['series_end_code'] ?? '')),
+                ])),
+                true
+            );
+            if (!$registeredPackQr && !$matchesVariantPackCode) {
                 echo json_encode([
                     'success' => false,
                     'message' => 'This Series/Complementary QR code is not in available stock in the selected warehouse.'
