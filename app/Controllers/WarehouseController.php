@@ -3027,18 +3027,11 @@ class WarehouseController {
             if ($variant) break;
         }
 
-        // Generated complementary QR codes are stored in the warehouse QR registry,
-        // rather than in product_variants.qr_code.
+        // Generated Series/Complementary pack QR codes may only exist in the
+        // warehouse QR registry. Current warehouse stock is validated below.
         if (!$variant) {
             foreach ($candidateCodes as $c) {
                 if (empty($c)) continue;
-                $registryWarehouseFilter = $warehouseId > 0
-                    ? " AND (wqr.warehouse_id = ? OR wqr.warehouse_id IS NULL)"
-                    : "";
-                $registryParams = [$c];
-                if ($warehouseId > 0) {
-                    $registryParams[] = $warehouseId;
-                }
                 $variant = Database::fetchOne(
                     "SELECT pv.*,
                             p.id as product_id, p.name as product_name, p.code as product_code, p.image_url as product_image,
@@ -3062,10 +3055,9 @@ class WarehouseController {
                      LEFT JOIN subcategories subcat ON p.subcategory_id = subcat.id
                      LEFT JOIN sub_subcategories subsubcat ON p.sub_subcategory_id = subsubcat.id
                      WHERE UPPER(wqr.qr_code) = UPPER(?)
-                       AND wqr.inwarded_at IS NOT NULL
-                       AND wqr.variant_id IS NOT NULL{$registryWarehouseFilter}
+                       AND wqr.variant_id IS NOT NULL
                      LIMIT 1",
-                    $registryParams
+                    [$c]
                 );
                 if ($variant) break;
             }
@@ -7127,8 +7119,8 @@ class WarehouseController {
             if ($variant) break;
         }
 
-        // Generated complementary QR codes are registered in warehouse_qr_codes,
-        // not necessarily in product_variants.qr_code.
+        // Generated Series/Complementary pack QR codes may only exist in the
+        // warehouse QR registry. Current warehouse stock is validated below.
         if (!$variant) {
             foreach ($candidateCodes as $c) {
                 if (empty($c)) continue;
@@ -7137,13 +7129,8 @@ class WarehouseController {
                     FROM warehouse_qr_codes wqr
                     JOIN product_variants pv ON pv.id = wqr.variant_id
                     WHERE UPPER(wqr.qr_code) = UPPER(?)
-                      AND wqr.inwarded_at IS NOT NULL
                       AND wqr.variant_id IS NOT NULL";
                 $registryParams = [$c];
-                if ($warehouseId > 0) {
-                    $registrySql .= " AND (wqr.warehouse_id = ? OR wqr.warehouse_id IS NULL)";
-                    $registryParams[] = $warehouseId;
-                }
                 $registrySql .= " LIMIT 1";
                 $registeredQr = Database::fetchOne($registrySql, $registryParams);
                 if ($registeredQr) {
