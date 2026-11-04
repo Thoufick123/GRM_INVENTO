@@ -9339,6 +9339,27 @@ class WarehouseController {
                 $inwardNote
             );
 
+            $qrPlaceholders = implode(',', array_fill(0, count($tagCodes), '?'));
+            $inwardedQrRows = Database::fetchAll(
+                "SELECT qr_code, inwarded_at
+                 FROM warehouse_qr_codes
+                 WHERE variant_id = ? AND warehouse_id = ?
+                   AND qr_code IN ({$qrPlaceholders})
+                   AND inwarded_at IS NOT NULL",
+                array_merge([$variantId, $warehouseId], array_values($tagCodes))
+            );
+            if (count($inwardedQrRows) !== count($tagCodes)) {
+                throw new RuntimeException('Unable to confirm the inward timestamp for every selected QR code.');
+            }
+            $inwardedQrCodes = array_map(static function (array $row): array {
+                $timestamp = (string)$row['inwarded_at'];
+                return [
+                    'qr_code' => $row['qr_code'],
+                    'inwarded_at' => $timestamp,
+                    'inwarded_at_label' => date('d M Y, h:i A', strtotime($timestamp)),
+                ];
+            }, $inwardedQrRows);
+
             // Fetch new real-time available stock balance
             $newBalance = Database::fetchOne(
                 "SELECT quantity FROM stock_balances WHERE variant_id = ? AND location_type = 'WAREHOUSE' AND location_id = ? AND stock_state = 'AVAILABLE'",
@@ -9385,6 +9406,7 @@ class WarehouseController {
                 'warehouse_name'        => $whName,
                 'warehouse_stock'       => (int)$newBalance,
                 'total_warehouse_stock' => (int)$totalWarehouseStock,
+                'inwarded_qr_codes'     => $inwardedQrCodes,
             ]);
         } catch (Throwable $e) {
             if ($packTransactionStarted) {

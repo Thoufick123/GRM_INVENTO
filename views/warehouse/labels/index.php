@@ -956,6 +956,8 @@ if ($isViewingExisting && $selectedVariantId && $activeVar) {
             'is_complementary'     => $isComp,
             'pack_quantity'        => (int)($activeVar['pack_quantity'] ?? 1),
             'is_inwarded'          => !empty($qrCode['inwarded_at']),
+            'inwarded_at'          => $qrCode['inwarded_at'] ?? null,
+            'inwarded_at_label'    => !empty($qrCode['inwarded_at']) ? date('d M Y, h:i A', strtotime($qrCode['inwarded_at'])) : '',
             'category_name'        => $activeVar['category_name'] ?? '',
             'subcategory_name'     => $activeVar['subcategory_name'] ?? '',
             'sub_subcategory_name' => $activeVar['sub_subcategory_name'] ?? '',
@@ -994,6 +996,10 @@ if (!empty($generatedItems) && !$isViewingExisting) {
                     $generatedItem['tag_code'] = $savedPackQr['qr_code'];
                     $generatedItem['qr_payload'] = $savedPackQr['qr_code'];
                     $generatedItem['is_inwarded'] = !empty($savedPackQr['inwarded_at']);
+                    $generatedItem['inwarded_at'] = $savedPackQr['inwarded_at'] ?? null;
+                    $generatedItem['inwarded_at_label'] = !empty($savedPackQr['inwarded_at'])
+                        ? date('d M Y, h:i A', strtotime($savedPackQr['inwarded_at']))
+                        : '';
                     $generatedItem['is_saved_qr'] = true;
                     $generatedItem['series_start_code'] = $savedPackQr['qr_code'];
                     $generatedItem['series_end_code'] = $savedPackQr['qr_code'];
@@ -2257,6 +2263,9 @@ $hasSeriesGenerated = !empty($generatedItems) && !empty($generatedItems[0]['is_s
                                         Disc: ₹<?= $displaySell ?>
                                     </div>
                                 </div>
+                            </div>
+                            <div id="inwarded-at-<?= $index ?>" class="small text-success fw-semibold no-print <?= empty($item['inwarded_at_label']) ? 'd-none' : '' ?>">
+                                <i class="bi bi-clock-history me-1"></i>Inwarded: <span><?= e($item['inwarded_at_label'] ?? '') ?></span>
                             </div>
                             
                             <!-- Action Buttons for This Piece -->
@@ -3656,10 +3665,20 @@ function confirmStickeredInwardAction(event) {
                 GENERATED_ITEMS.forEach((it, idx) => {
                     if (it && it.tag_code === code) {
                         it.is_inwarded = true;
+                        const qrRecord = (data.inwarded_qr_codes || []).find(item => item.qr_code === code);
+                        if (qrRecord) {
+                            it.inwarded_at = qrRecord.inwarded_at;
+                            it.inwarded_at_label = qrRecord.inwarded_at_label;
+                        }
                         selectedStickerIndices.delete(idx);
 
                         const card = document.getElementById(`card-piece-${idx}`);
                         const chk = document.getElementById(`chk-piece-${idx}`);
+                        const inwardedAtLabel = document.getElementById(`inwarded-at-${idx}`);
+                        if (inwardedAtLabel && qrRecord) {
+                            inwardedAtLabel.querySelector('span').textContent = qrRecord.inwarded_at_label;
+                            inwardedAtLabel.classList.remove('d-none');
+                        }
                         if (chk) {
                             chk.checked = false;
                             chk.disabled = true;
