@@ -282,6 +282,11 @@
 
                 <!-- Lookup Results Container -->
                 <div id="lookupResultsContainer" style="display: none;">
+                    <div id="returnInvoiceBlockedNotice" class="alert alert-warning d-none" role="alert">
+                        <div class="fw-bold">This invoice has already been used for a return or exchange.</div>
+                        <div class="small">Each invoice can only be processed once: <span id="blockedInvoiceNumber" class="font-monospace fw-semibold"></span></div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="resetLookupSearch()">Search another invoice</button>
+                    </div>
                     
                     <form id="processReturnForm" method="POST" action="<?= url('shop/returns/process') ?>">
                         <?= CSRF::field() ?>
@@ -361,9 +366,6 @@
                                         </p>
                                     </div>
                                 </div>
-                            </div>
-                            <div id="exchangeAlreadyUsedNotice" class="alert alert-warning py-2 px-3 mt-3 mb-0 d-none" role="alert">
-                                This invoice has already been used for an exchange. Direct return is still available for eligible items.
                             </div>
                         </div>
 
@@ -460,7 +462,7 @@
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="input-group input-group-sm" style="max-width: 320px;">
                                         <span class="input-group-text bg-light text-danger border-end-0"><i class="bi bi-upc-scan"></i></span>
-                                        <input type="text" id="scanReturnItemInput" class="form-control form-control-sm font-monospace border-start-0" placeholder="Scan Old Piece Tag/SKU..." onkeydown="if(event.key === 'Enter') { event.preventDefault(); scanReturningPiece(this.value); }">
+                                        <input type="text" id="scanReturnItemInput" class="form-control form-control-sm font-monospace border-start-0" placeholder="Scan a piece tag or SKU from this invoice..." onkeydown="if(event.key === 'Enter') { event.preventDefault(); scanReturningPiece(this.value); }">
                                         <button class="btn btn-sm btn-danger fw-bold px-2.5" type="button" onclick="scanReturningPiece(document.getElementById('scanReturnItemInput').value)">Scan</button>
                                     </div>
                                 </div>
@@ -625,8 +627,8 @@ window.recalculateSplitTotals = function() {
 };
 
 window.selectWaActionCard = function(mode) {
-    if (mode !== 'RETURN' && currentSaleExchangeUsed) {
-        alert('This invoice has already been used for an exchange. An invoice can be exchanged only once.');
+    if (currentSaleReturnUsed) {
+        alert('This invoice has already been used for a return or exchange. Each invoice can only be processed once.');
         return;
     }
     document.getElementById('formReturnTypeInput').value = mode;
@@ -666,7 +668,7 @@ window.selectWaActionCard = function(mode) {
 let loadedOrderItemsMap = {};
 let currentSwapValues = {};
 let currentSwapTags = {};
-let currentSaleExchangeUsed = false;
+let currentSaleReturnUsed = false;
 
 window.renderSameExchangeTable = function() {
     const isExchange = document.getElementById('formReturnTypeInput')?.value === 'EXCHANGE_SAME';
@@ -828,9 +830,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         const button = document.createElement('button');
                         button.type = 'button';
                         button.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-3';
+                        button.disabled = Number(sale.return_exchange_used || 0) === 1;
                         const summary = document.createElement('span');
                         summary.innerHTML = `<strong class="font-monospace">${escapeReturnHtml(sale.invoice_number || '')}</strong>
-                            <span class="small text-muted d-block">${escapeReturnHtml(sale.customer_name || 'Shop Customer')} · ${escapeReturnHtml(sale.created_at || '')}</span>`;
+                            <span class="small text-muted d-block">${escapeReturnHtml(sale.customer_name || 'Shop Customer')} · ${escapeReturnHtml(sale.created_at || '')}</span>
+                            ${button.disabled ? '<span class="small text-danger d-block fw-semibold">Already used for return / exchange</span>' : ''}`;
                         const total = document.createElement('span');
                         total.className = 'text-nowrap fw-semibold';
                         total.textContent = '₹' + Number(sale.total_amount || 0).toFixed(2);
@@ -851,14 +855,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const sale = match.sale || match;
                 const items = match.items || res.items || [];
-                currentSaleExchangeUsed = Number(sale.exchange_used || 0) === 1;
-                const exchangeNotice = document.getElementById('exchangeAlreadyUsedNotice');
-                const exchangeCard = document.getElementById('waCard_EXCHANGE_SAME');
-                if (exchangeNotice) exchangeNotice.classList.toggle('d-none', !currentSaleExchangeUsed);
-                if (exchangeCard) {
-                    exchangeCard.style.opacity = currentSaleExchangeUsed ? '0.5' : '1';
-                    exchangeCard.style.cursor = currentSaleExchangeUsed ? 'not-allowed' : 'pointer';
-                    exchangeCard.setAttribute('aria-disabled', currentSaleExchangeUsed ? 'true' : 'false');
+                currentSaleReturnUsed = Number(sale.return_exchange_used || 0) === 1;
+                const blockedNotice = document.getElementById('returnInvoiceBlockedNotice');
+                const processForm = document.getElementById('processReturnForm');
+                if (blockedNotice) blockedNotice.classList.toggle('d-none', !currentSaleReturnUsed);
+                if (processForm) processForm.classList.toggle('d-none', currentSaleReturnUsed);
+                if (currentSaleReturnUsed) {
+                    document.getElementById('blockedInvoiceNumber').textContent = sale.invoice_number || '';
+                    resultsContainer.style.display = 'block';
+                    return;
                 }
 
                 document.getElementById('formSaleId').value = sale.id;
@@ -902,13 +907,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="fw-bold text-dark" style="font-size:13px; line-height:1.3;">${item.product_name}</div>
                             <div class="small text-muted mb-1" style="font-size:11px;">
                                 SKU: <strong class="text-dark font-monospace">${item.sku || '-'}</strong> | Size: <span class="badge bg-light text-dark border" style="font-size:10px;">${item.size_name || '-'}</span> | Color: <span class="badge bg-light text-dark border" style="font-size:10px;">${item.color_name || '-'}</span>
-                            </div>
-                            <div class="d-flex align-items-center gap-1 mt-1">
-                                <div class="input-group input-group-sm" style="max-width:170px;">
-                                    <span class="input-group-text bg-light text-muted py-0 px-1" style="font-size:10px;"><i class="bi bi-qr-code"></i></span>
-                                    <input type="text" id="waTagInput_${item.id}" class="form-control form-control-sm font-monospace py-0 px-1" placeholder="Scan piece tag..." style="font-size:11px; height:24px;" onkeydown="if(event.key==='Enter'){event.preventDefault(); addWaPieceTag(${item.id}, this.value); this.value='';}">
-                                    <button type="button" id="waTagBtn_${item.id}" class="btn btn-sm btn-outline-danger py-0 px-2" style="height:24px; font-size:11px;" onclick="const inp=document.getElementById('waTagInput_${item.id}'); addWaPieceTag(${item.id}, inp.value); inp.value='';">+</button>
-                                </div>
                             </div>
                             <div class="scanned-tags-display d-flex flex-wrap gap-1 mt-1" id="waTagsDisplay_${item.id}"></div>
                             <input type="hidden" name="items[${item.id}][exchange_variant_id]" id="swapVariant_${item.id}" value="" disabled>
@@ -964,7 +962,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 resultsContainer.style.display = 'block';
-                selectWaActionCard(currentSaleExchangeUsed ? 'RETURN' : 'EXCHANGE_SAME');
+                selectWaActionCard('EXCHANGE_SAME');
+                document.getElementById('scanReturnItemInput')?.focus();
             })
             .catch(err => {
                 btnSearch.disabled = false;
@@ -1155,11 +1154,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (varEl) varEl.disabled = !isChecked;
         if (priceEl) priceEl.disabled = !isChecked;
 
-        const tagInput = document.getElementById('waTagInput_' + itemId);
-        const tagBtn = document.getElementById('waTagBtn_' + itemId);
-        if (tagInput) tagInput.disabled = !isChecked;
-        if (tagBtn) tagBtn.disabled = !isChecked;
-
         const checkedCount = document.querySelectorAll('.item-select-cb:checked').length;
         const totalCount = document.querySelectorAll('.item-select-cb').length;
         const badge = document.getElementById('waItemCountBadge');
@@ -1201,15 +1195,11 @@ document.addEventListener('DOMContentLoaded', function() {
         loadedOrderItemsMap = {};
         currentSwapValues = {};
         currentSwapTags = {};
-        currentSaleExchangeUsed = false;
-        const exchangeNotice = document.getElementById('exchangeAlreadyUsedNotice');
-        const exchangeCard = document.getElementById('waCard_EXCHANGE_SAME');
-        if (exchangeNotice) exchangeNotice.classList.add('d-none');
-        if (exchangeCard) {
-            exchangeCard.style.opacity = '1';
-            exchangeCard.style.cursor = 'pointer';
-            exchangeCard.setAttribute('aria-disabled', 'false');
-        }
+        currentSaleReturnUsed = false;
+        const blockedNotice = document.getElementById('returnInvoiceBlockedNotice');
+        const processForm = document.getElementById('processReturnForm');
+        if (blockedNotice) blockedNotice.classList.add('d-none');
+        if (processForm) processForm.classList.remove('d-none');
         if (searchInput) searchInput.focus();
     };
 
@@ -1233,6 +1223,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('processReturnForm').addEventListener('submit', function(e) {
         const selectedItems = [...document.querySelectorAll('.item-select-cb:checked')];
         const returnType = document.getElementById('formReturnTypeInput').value;
+        if (currentSaleReturnUsed) {
+            e.preventDefault();
+            alert('This invoice has already been used for a return or exchange. Each invoice can only be processed once.');
+            return;
+        }
         if (selectedItems.length === 0) {
             e.preventDefault();
             alert('Select at least one invoice item to return.');

@@ -832,9 +832,9 @@ class ShopController {
                         LEFT JOIN exchanges e ON e.return_id = r.id
                         WHERE r.sale_id = s.id
                           AND r.source_type = 'SHOP'
-                          AND r.return_type = 'EXCHANGE'
+                          AND r.status <> 'CANCELLED'
                           AND (e.id IS NULL OR e.status <> 'CANCELLED')
-                    ) as exchange_used
+                    ) as return_exchange_used
              FROM sales s
              LEFT JOIN customers c ON s.customer_id = c.id
         ";
@@ -863,7 +863,7 @@ class ShopController {
                     )
                 )
                 AND s.sale_type = 'SHOP' AND s.shop_id = ?
-                ORDER BY s.id DESC LIMIT 50",
+                ORDER BY s.id DESC",
                 [
                     $term, "%{$term}%",
                     $term, "%{$term}%",
@@ -1217,20 +1217,19 @@ class ShopController {
                 throw new RuntimeException('Shop sale record was not found in the active shop.');
             }
 
-            $isExchange = $returnType !== 'RETURN';
-            if ($isExchange) {
-                $previousExchange = Database::fetchOne(
-                    "SELECT COUNT(*) as exchange_count
-                     FROM returns r
-                     LEFT JOIN exchanges e ON e.return_id = r.id
-                     WHERE r.sale_id = ? AND r.source_type = 'SHOP'
-                       AND r.return_type = 'EXCHANGE'
-                       AND (e.id IS NULL OR e.status <> 'CANCELLED')",
-                    [$saleId]
-                );
-                if ((int)($previousExchange['exchange_count'] ?? 0) > 0) {
-                    throw new RuntimeException('This invoice has already been used for an exchange. An invoice can be exchanged only once.');
-                }
+            $previousReturn = Database::fetchOne(
+                "SELECT r.return_number
+                 FROM returns r
+                 LEFT JOIN exchanges e ON e.return_id = r.id
+                 WHERE r.sale_id = ? AND r.source_type = 'SHOP'
+                   AND r.status <> 'CANCELLED'
+                   AND (e.id IS NULL OR e.status <> 'CANCELLED')
+                 ORDER BY r.id DESC
+                 LIMIT 1",
+                [$saleId]
+            );
+            if ($previousReturn) {
+                throw new RuntimeException('This invoice has already been used for a return or exchange. Each invoice can be processed only once.');
             }
 
             $normalizedItems = [];
