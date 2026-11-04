@@ -2761,6 +2761,13 @@ class WarehouseController {
                     }
                 }
                 foreach (array_filter(array_map('trim', explode(',', $tagCode))) as $tag) {
+                    $channelOrShopDamage = $this->findChannelOrShopDamageTagRecord($tag);
+                    if ($channelOrShopDamage) {
+                        throw new RuntimeException(
+                            "QR tag '{$tag}' is already recorded as damaged in {$channelOrShopDamage['damage_source']} damage #{$channelOrShopDamage['damage_number']} and cannot be damaged again from warehouse stock."
+                        );
+                    }
+
                     $allocatedTag = $this->findAllocatedWarehouseTag($tag);
                     if ($allocatedTag) {
                         $reason = (int)$allocatedTag['variant_id'] !== $variantId
@@ -2971,6 +2978,17 @@ class WarehouseController {
         }
 
         $candidateCodes = array_values(array_unique(array_filter($candidateCodes)));
+
+        foreach (array_unique(array_merge([$extractedTag], $candidateCodes)) as $tagToCheck) {
+            $channelOrShopDamage = $this->findChannelOrShopDamageTagRecord((string)$tagToCheck);
+            if ($channelOrShopDamage) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => "QR tag '" . htmlspecialchars((string)$tagToCheck, ENT_QUOTES, 'UTF-8') . "' is already recorded as damaged in {$channelOrShopDamage['damage_source']} damage #" . htmlspecialchars((string)$channelOrShopDamage['damage_number'], ENT_QUOTES, 'UTF-8') . ' and cannot be added to warehouse damage again.'
+                ]);
+                exit;
+            }
+        }
 
         $variant = null;
 
@@ -4898,6 +4916,28 @@ class WarehouseController {
         );
     }
 
+    private function findChannelOrShopDamageTagRecord(string $tag): ?array {
+        $tag = strtoupper(trim($tag));
+        if ($tag === '') {
+            return null;
+        }
+
+        return Database::fetchOne(
+            "SELECT damage_number, damage_source
+             FROM (
+                 SELECT damage_number, 'Channel' AS damage_source
+                 FROM channel_damages
+                 WHERE FIND_IN_SET(?, REPLACE(UPPER(COALESCE(tag_code, '')), ' ', '')) > 0
+                 UNION ALL
+                 SELECT damage_number, 'Shop' AS damage_source
+                 FROM shop_damages
+                 WHERE FIND_IN_SET(?, REPLACE(UPPER(COALESCE(tag_code, '')), ' ', '')) > 0
+             ) damaged_tags
+             LIMIT 1",
+            [$tag, $tag]
+        );
+    }
+
     public function ajaxScanPurchaseQr(): void {
         $isAdjustmentScan = ($_REQUEST['purpose'] ?? '') === 'stock_adjustment';
         $hasScanPermission = $isAdjustmentScan
@@ -6385,6 +6425,13 @@ class WarehouseController {
                         return;
                     }
 
+                    $channelOrShopDamage = $this->findChannelOrShopDamageTagRecord($stagUpper);
+                    if ($channelOrShopDamage) {
+                        Session::flash('error', "Cannot save: QR tag '{$stagUpper}' is already recorded as damaged in {$channelOrShopDamage['damage_source']} damage #{$channelOrShopDamage['damage_number']} and cannot be allocated.");
+                        Response::redirect(url('warehouse/allocation/create'));
+                        return;
+                    }
+
                     $directPurchaseSoldTag = $this->findDirectPurchaseSoldTag($stagUpper);
                     if ($directPurchaseSoldTag) {
                         Session::flash('error', "Cannot save: QR tag '{$stagUpper}' was already sold in Direct Purchase #{$directPurchaseSoldTag['po_number']} and cannot be allocated.");
@@ -6942,6 +6989,14 @@ class WarehouseController {
                 echo json_encode([
                     'success' => false,
                     'message' => 'This product is in the Warehouse Damage module and cannot be scanned or allocated.'
+                ]);
+                exit;
+            }
+            $channelOrShopDamage = $this->findChannelOrShopDamageTagRecord((string)$tagToCheck);
+            if ($channelOrShopDamage) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => "QR tag '" . htmlspecialchars((string)$tagToCheck, ENT_QUOTES, 'UTF-8') . "' is already recorded as damaged in {$channelOrShopDamage['damage_source']} damage #" . htmlspecialchars((string)$channelOrShopDamage['damage_number'], ENT_QUOTES, 'UTF-8') . ' and cannot be allocated.'
                 ]);
                 exit;
             }
