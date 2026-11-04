@@ -2971,6 +2971,13 @@ class ShopController {
                     || strtoupper((string)$productType['qr_type']) === 'SERIES_BATCH'
                     || (int)$productType['pack_quantity'] > 1
                 );
+                $tagCode = trim($it['tag_code'] ?? '');
+                if (!$isSeries && !$isComplementary && $tagCode !== '') {
+                    $pieceAvailable = $this->isShopPieceAvailableForDamage($variantId, $shopId, $tagCode);
+                    if ($pieceAvailable === false) {
+                        throw new RuntimeException("Piece tag '{$tagCode}' is not available in this shop's inventory.");
+                    }
+                }
                 $qty = ($isSeries || $isComplementary)
                     ? max(1, (int)($it['quantity'] ?? 1))
                     : 1;
@@ -2988,7 +2995,6 @@ class ShopController {
                 $processedQtyByVariant[$variantId] = $previouslyQueuedQty + $qty;
                 $costPerUnit = max(0.0, (float)($it['cost_per_unit'] ?? 0.0));
                 $totalLoss = max(0.0, (float)($it['total_loss'] ?? ($qty * $costPerUnit)));
-                $tagCode = trim($it['tag_code'] ?? '');
                 $damageReason = trim($it['damage_reason'] ?? 'Shop Floor Defect');
                 $sourceType = !empty($it['source_type']) ? $it['source_type'] : ($_POST['source_type'] ?? 'SHOP_BIN_HANDLING');
                 $allowedDefectTypes = ['FABRIC_DEFECT','COLOR_FADE','STITCHING_ERROR','PACKAGING_DAMAGE','WATER_STAIN','TRANSIT_DAMAGE','EXPIRED','SHOP_SOIL','OTHER'];
@@ -3545,6 +3551,21 @@ class ShopController {
                 || strtoupper((string)($foundVariant['qr_type'] ?? '')) === 'SERIES_BATCH'
                 || (int)($foundVariant['pack_quantity'] ?? 1) > 1
             );
+            if (!$isReturnLookup && !$isSeries && !$isComplementary) {
+                $pieceAvailable = $this->isShopPieceAvailableForDamage(
+                    (int)$foundVariant['id'],
+                    $shopId,
+                    $matchedTagCode
+                );
+                if ($pieceAvailable === false || ($matchedAllocId !== null && $pieceAvailable !== true)) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'This piece tag is not available in the selected shop. Only pieces currently in shop inventory can be added to damage.',
+                    ]);
+                    exit;
+                }
+            }
+
             if (!$isReturnLookup && (float)($foundVariant['available_qty'] ?? 0) <= 0) {
                 echo json_encode([
                     'success' => false,
@@ -3585,6 +3606,17 @@ class ShopController {
             ]);
         }
         exit;
+    }
+
+    private function isShopPieceAvailableForDamage(int $variantId, int $shopId, string $tagCode): ?bool {
+        $inventoryItem = ShopService::getShopInventoryItem($shopId, $variantId);
+        foreach ($inventoryItem['individual_pieces'] ?? [] as $piece) {
+            if (strcasecmp(trim((string)($piece['tag_code'] ?? '')), trim($tagCode)) === 0) {
+                return strcasecmp(trim((string)($piece['status'] ?? '')), 'In Stock') === 0;
+            }
+        }
+
+        return null;
     }
 
     private function findExactShopReplacement(string $rawCode, int $shopId): ?array {
