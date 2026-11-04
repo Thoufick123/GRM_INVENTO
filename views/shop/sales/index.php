@@ -1,5 +1,9 @@
 <?php
 // views/shop/sales/index.php — Selled Products (Sales Ledger)
+$cashRevenueTotal = array_sum(array_column($items, 'cash_revenue'));
+$onlineRevenueTotal = array_sum(array_column($items, 'online_revenue'));
+$cashRecordCount = count(array_filter($items, static fn($item) => (float)($item['cash_revenue'] ?? 0) > 0));
+$onlineRecordCount = count(array_filter($items, static fn($item) => (float)($item['online_revenue'] ?? 0) > 0));
 ?>
 <div class="container-fluid py-4">
     <!-- Header Section -->
@@ -85,12 +89,34 @@
         </div>
     </div>
 
+    <!-- Payment Type Tabs -->
+    <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white">
+        <div class="card-body p-2">
+            <div class="nav nav-pills gap-2" role="tablist" aria-label="Filter sold products by payment type">
+                <button type="button" class="nav-link active rounded-3 d-flex align-items-center gap-2"
+                        id="cashPaymentTab" data-payment-tab="cash" role="tab" aria-selected="true">
+                    <i class="bi bi-cash-stack"></i>
+                    <span>Cash</span>
+                    <span class="badge bg-white text-success" id="cashPaymentTabTotal">₹<?= number_format($cashRevenueTotal, 2) ?></span>
+                    <span class="small opacity-75" id="cashPaymentTabCount"><?= number_format($cashRecordCount) ?> records</span>
+                </button>
+                <button type="button" class="nav-link rounded-3 d-flex align-items-center gap-2 text-dark"
+                        id="onlinePaymentTab" data-payment-tab="online" role="tab" aria-selected="false">
+                    <i class="bi bi-globe2"></i>
+                    <span>Online</span>
+                    <span class="badge bg-light text-primary" id="onlinePaymentTabTotal">₹<?= number_format($onlineRevenueTotal, 2) ?></span>
+                    <span class="small opacity-75" id="onlinePaymentTabCount"><?= number_format($onlineRecordCount) ?> records</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Filter & Search Toolbar -->
     <div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
         <div class="card-body p-3">
             <form method="GET" action="<?= url('shop/sales') ?>" class="row g-2 align-items-center" id="salesFilterForm" onsubmit="return true;">
                 <!-- Search Input -->
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" name="search" id="salesSearchInput" class="form-control bg-light border-start-0" 
@@ -110,20 +136,8 @@
                            placeholder="End Date" value="<?= e($filters['end_date'] ?? '') ?>" title="End Date">
                 </div>
 
-                <!-- Payment Mode -->
-                <div class="col-md-2">
-                    <select name="payment_mode" id="salesPayModeSelect" class="form-select bg-light">
-                        <option value="ALL" <?= ($filters['payment_mode'] ?? '') === 'ALL' ? 'selected' : '' ?>>All Pay Modes</option>
-                        <option value="CASH" <?= ($filters['payment_mode'] ?? '') === 'CASH' ? 'selected' : '' ?>>CASH</option>
-                        <option value="UPI" <?= ($filters['payment_mode'] ?? '') === 'UPI' ? 'selected' : '' ?>>UPI Transfer</option>
-                        <option value="CARD" <?= ($filters['payment_mode'] ?? '') === 'CARD' ? 'selected' : '' ?>>Card</option>
-                        <option value="CASH_UPI" <?= ($filters['payment_mode'] ?? '') === 'CASH_UPI' ? 'selected' : '' ?>>Cash + UPI (Split)</option>
-                        <option value="MIXED" <?= ($filters['payment_mode'] ?? '') === 'MIXED' ? 'selected' : '' ?>>Mixed</option>
-                    </select>
-                </div>
-
                 <!-- Category -->
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <select name="category_id" id="salesCatSelect" class="form-select bg-light">
                         <option value="ALL">All Categories</option>
                         <?php foreach ($categories as $cat): ?>
@@ -137,7 +151,7 @@
                     <button type="submit" class="btn btn-primary rounded-3 w-100" title="Apply Filter">
                         <i class="bi bi-funnel-fill"></i>
                     </button>
-                    <?php if (!empty($filters['search']) || !empty($filters['start_date']) || !empty($filters['end_date']) || ($filters['payment_mode'] ?? 'ALL') !== 'ALL' || ($filters['category_id'] ?? 'ALL') !== 'ALL'): ?>
+                    <?php if (!empty($filters['search']) || !empty($filters['start_date']) || !empty($filters['end_date']) || ($filters['category_id'] ?? 'ALL') !== 'ALL'): ?>
                         <a href="<?= url('shop/sales') ?>" class="btn btn-light border rounded-3" title="Clear Filters">
                             <i class="bi bi-arrow-clockwise"></i>
                         </a>
@@ -189,10 +203,10 @@
                         ?>
                             <tr class="sales-row" 
                                 data-search="<?= e($searchHaystack) ?>"
-                                data-mode="<?= e($it['payment_mode'] ?? 'CASH') ?>"
                                 data-cat="<?= (int)($it['category_id'] ?? 0) ?>"
                                 data-date="<?= e($saleDateFormatted) ?>"
-                                data-amount="<?= (float)($it['total_amount'] ?? 0) ?>">
+                                data-cash-revenue="<?= number_format((float)($it['cash_revenue'] ?? 0), 2, '.', '') ?>"
+                                data-online-revenue="<?= number_format((float)($it['online_revenue'] ?? 0), 2, '.', '') ?>">
                                 <td class="ps-4 text-muted small fw-bold sales-idx"><?= $idx + 1 ?></td>
                                 <td>
                                     <div>
@@ -1243,18 +1257,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('salesSearchInput');
     const startDateInput = document.getElementById('salesStartDate');
     const endDateInput = document.getElementById('salesEndDate');
-    const payModeSelect = document.getElementById('salesPayModeSelect');
     const catSelect = document.getElementById('salesCatSelect');
     const tableBody = document.getElementById('salesTableBody');
     const countBadge = document.getElementById('salesCountBadge');
     const btnClear = document.getElementById('btnClearSalesSearch');
     const rows = Array.from(document.querySelectorAll('.sales-row'));
+    const paymentTabs = Array.from(document.querySelectorAll('[data-payment-tab]'));
+    let activePaymentTab = 'cash';
 
     window.applySalesFilters = function() {
-        if (!rows.length) return;
-
         const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
-        const payMode = (payModeSelect ? payModeSelect.value : 'ALL').toUpperCase();
         const catId = (catSelect ? catSelect.value : 'ALL');
         const startDate = (startDateInput ? startDateInput.value : '');
         const endDate = (endDateInput ? endDateInput.value : '');
@@ -1265,20 +1277,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         let visibleCount = 0;
+        let cashCount = 0;
+        let onlineCount = 0;
+        let cashRevenue = 0;
+        let onlineRevenue = 0;
 
         rows.forEach(row => {
             const searchData = row.getAttribute('data-search') || '';
-            const rowMode = (row.getAttribute('data-mode') || '').toUpperCase();
             const rowCat = row.getAttribute('data-cat') || '';
             const rowDate = row.getAttribute('data-date') || '';
+            const rowCashRevenue = parseFloat(row.getAttribute('data-cash-revenue')) || 0;
+            const rowOnlineRevenue = parseFloat(row.getAttribute('data-online-revenue')) || 0;
 
             const matchQuery = !query || searchData.includes(query);
-            const matchMode = (payMode === 'ALL') || (rowMode === payMode);
             const matchCat = (catId === 'ALL') || (rowCat === catId);
             const matchStart = !startDate || (rowDate >= startDate);
             const matchEnd = !endDate || (rowDate <= endDate);
+            const matchesOtherFilters = matchQuery && matchCat && matchStart && matchEnd;
 
-            if (matchQuery && matchMode && matchCat && matchStart && matchEnd) {
+            if (matchesOtherFilters) {
+                cashRevenue += rowCashRevenue;
+                onlineRevenue += rowOnlineRevenue;
+                if (rowCashRevenue > 0) cashCount++;
+                if (rowOnlineRevenue > 0) onlineCount++;
+            }
+
+            const matchesPaymentTab = activePaymentTab === 'cash'
+                ? rowCashRevenue > 0
+                : rowOnlineRevenue > 0;
+            if (matchesOtherFilters && matchesPaymentTab) {
                 row.style.display = '';
                 visibleCount++;
             } else {
@@ -1286,14 +1313,36 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
+        const cashTotalEl = document.getElementById('cashPaymentTabTotal');
+        const onlineTotalEl = document.getElementById('onlinePaymentTabTotal');
+        const cashCountEl = document.getElementById('cashPaymentTabCount');
+        const onlineCountEl = document.getElementById('onlinePaymentTabCount');
+        if (cashTotalEl) cashTotalEl.textContent = `₹${cashRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (onlineTotalEl) onlineTotalEl.textContent = `₹${onlineRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (cashCountEl) cashCountEl.textContent = `${cashCount.toLocaleString('en-IN')} records`;
+        if (onlineCountEl) onlineCountEl.textContent = `${onlineCount.toLocaleString('en-IN')} records`;
+
         if (countBadge) {
             countBadge.textContent = `Showing ${visibleCount} records`;
         }
 
+        paymentTabs.forEach(tab => {
+            const isActive = tab.getAttribute('data-payment-tab') === activePaymentTab;
+            tab.classList.toggle('active', isActive);
+            tab.classList.toggle('text-dark', !isActive);
+            tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            const totalBadge = tab.querySelector('.badge');
+            if (totalBadge) {
+                totalBadge.className = isActive
+                    ? (activePaymentTab === 'cash' ? 'badge bg-white text-success' : 'badge bg-white text-primary')
+                    : 'badge bg-light text-primary';
+            }
+        });
+
         // Show/hide empty row
         let emptyRow = document.getElementById('noSalesMatchRow');
         if (visibleCount === 0) {
-            if (!emptyRow && tableBody) {
+            if (rows.length > 0 && !emptyRow && tableBody) {
                 emptyRow = document.createElement('tr');
                 emptyRow.id = 'noSalesMatchRow';
                 emptyRow.innerHTML = `
@@ -1313,12 +1362,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    paymentTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            activePaymentTab = tab.getAttribute('data-payment-tab') || 'cash';
+            applySalesFilters();
+        });
+    });
+
     if (searchInput) {
         searchInput.addEventListener('input', applySalesFilters);
         searchInput.addEventListener('keyup', applySalesFilters);
-    }
-    if (payModeSelect) {
-        payModeSelect.addEventListener('change', applySalesFilters);
     }
     if (catSelect) {
         catSelect.addEventListener('change', applySalesFilters);
@@ -1331,5 +1384,7 @@ document.addEventListener('DOMContentLoaded', function() {
         endDateInput.addEventListener('change', applySalesFilters);
         endDateInput.addEventListener('input', applySalesFilters);
     }
+
+    applySalesFilters();
 });
 </script>

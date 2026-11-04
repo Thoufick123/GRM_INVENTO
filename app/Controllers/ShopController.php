@@ -2466,7 +2466,6 @@ class ShopController {
             'search'       => trim($_GET['search'] ?? ''),
             'start_date'   => trim($_GET['start_date'] ?? ''),
             'end_date'     => trim($_GET['end_date'] ?? ''),
-            'payment_mode' => trim($_GET['payment_mode'] ?? 'ALL'),
             'category_id'  => trim($_GET['category_id'] ?? 'ALL'),
         ];
 

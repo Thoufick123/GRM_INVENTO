@@ -3431,12 +3431,14 @@ class ShopService {
     public static function getSoldProducts(int $shopId, array $filters = []): array {
         $sql = "SELECT si.*, 
                        s.invoice_number, s.payment_mode, s.payment_status, s.created_at as sale_date,
-                       s.subtotal as invoice_subtotal, s.total_amount as invoice_total_amount,
+                       s.notes as sale_notes, s.subtotal as invoice_subtotal, s.total_amount as invoice_total_amount,
+                       COALESCE(payment_totals.cash_paid, 0) as cash_paid,
+                       COALESCE(payment_totals.online_paid, 0) as online_paid,
                        c.id as customer_id, c.name as customer_name, c.phone as customer_phone, c.address as customer_address,
                        u.full_name as cashier_name,
                        pv.sku, pv.mrp, pv.selling_price, pv.image_url as variant_image,
                        p.id as product_id, p.name as product_name, p.code as product_code, p.image_url as product_image,
-                       p.category_code, p.subcategory_code, p.hsn_code,
+                       p.category_id as category_id, p.category_code, p.subcategory_code, p.hsn_code,
                        sz.name as size_name, cl.name as color_name, cat.name as category_name
                 FROM sale_items si
                 JOIN sales s ON si.sale_id = s.id
@@ -3447,6 +3449,14 @@ class ShopService {
                 LEFT JOIN categories cat ON p.category_id = cat.id
                 LEFT JOIN customers c ON s.customer_id = c.id
                 LEFT JOIN users u ON s.billing_staff_id = u.id
+                LEFT JOIN (
+                    SELECT sale_id,
+                           SUM(CASE WHEN payment_mode = 'CASH' THEN amount ELSE 0 END) as cash_paid,
+                           SUM(CASE WHEN payment_mode <> 'CASH' THEN amount ELSE 0 END) as online_paid
+                    FROM payments
+                    WHERE status = 'COMPLETED'
+                    GROUP BY sale_id
+                ) payment_totals ON payment_totals.sale_id = s.id
                 WHERE s.shop_id = ? AND s.sale_type = 'SHOP'";
         
         $params = [$shopId];
@@ -3466,12 +3476,6 @@ class ShopService {
         if (!empty($filters['end_date'])) {
             $sql .= " AND DATE(s.created_at) <= ?";
             $params[] = $filters['end_date'];
-        }
-
-        // Filter by Payment Mode
-        if (!empty($filters['payment_mode']) && $filters['payment_mode'] !== 'ALL') {
-            $sql .= " AND s.payment_mode = ?";
-            $params[] = $filters['payment_mode'];
         }
 
         // Filter by Category
@@ -3539,6 +3543,26 @@ class ShopService {
             if ($discPercent <= 0 && $grossTotal > 0 && $discAmt > 0) {
                 $discPercent = round(($discAmt / $grossTotal) * 100, 2);
             }
+
+            $cashPaid = (float)$it['cash_paid'];
+            $onlinePaid = (float)$it['online_paid'];
+            if ($cashPaid + $onlinePaid <= 0) {
+                if (($it['payment_mode'] ?? '') === 'CASH_UPI'
+                    && preg_match('/\[Split Payment:\s*Cash\s*₹([\d,.]+)\s*\+\s*UPI\s*₹([\d,.]+)/i', (string)($it['sale_notes'] ?? ''), $splitPayment)) {
+                    $cashPaid = (float)str_replace(',', '', $splitPayment[1]);
+                    $onlinePaid = (float)str_replace(',', '', $splitPayment[2]);
+                } elseif (($it['payment_mode'] ?? '') === 'CASH') {
+                    $cashPaid = (float)($it['invoice_total_amount'] ?? 0);
+                } else {
+                    $onlinePaid = (float)($it['invoice_total_amount'] ?? 0);
+                }
+            }
+            $paymentTotal = $cashPaid + $onlinePaid;
+            $cashRevenue = $paymentTotal > 0
+                ? round($totalPaid * $cashPaid / $paymentTotal, 2)
+                : 0.0;
+            $it['cash_revenue'] = $cashRevenue;
+            $it['online_revenue'] = round($totalPaid - $cashRevenue, 2);
 
             $it['original_unit_price'] = $originalUnitPrice;
             $it['billed_unit_price']   = $billedUnitPrice;
