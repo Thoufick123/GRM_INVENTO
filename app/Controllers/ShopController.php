@@ -811,6 +811,19 @@ class ShopController {
     /**
      * AJAX Search for Shop Sales Orders for Return/Exchange lookup
      */
+    private function getShopSaleItemPaidUnitPrice(array $saleItem): float {
+        $quantity = max(1, (int)($saleItem['quantity'] ?? 1));
+        $lineTotal = (float)($saleItem['total_amount'] ?? 0);
+        if ($lineTotal > 0 || (float)($saleItem['unit_price'] ?? 0) <= 0) {
+            return round($lineTotal / $quantity, 2);
+        }
+
+        return max(0.0, round(
+            (float)$saleItem['unit_price'] - (float)($saleItem['discount_amount'] ?? 0) / $quantity,
+            2
+        ));
+    }
+
     public function ajaxReturnsLookup(): void {
         $term = trim($_REQUEST['q'] ?? $_REQUEST['query'] ?? $_REQUEST['term'] ?? $_REQUEST['invoice_number'] ?? $_REQUEST['search'] ?? '');
         $requestedSaleId = (int)($_REQUEST['sale_id'] ?? 0);
@@ -914,7 +927,7 @@ class ShopController {
         foreach ($items as &$it) {
             $returnedQty = (int)(Database::fetchOne("SELECT COALESCE(SUM(quantity), 0) as total FROM return_items WHERE sale_item_id = ?", [$it['id']])['total'] ?? 0);
             $it['returnable_quantity'] = max(0, (int)$it['quantity'] - $returnedQty);
-            
+            $it['unit_price'] = $this->getShopSaleItemPaidUnitPrice($it);
         }
         unset($it);
 
@@ -1275,7 +1288,7 @@ class ShopController {
                     throw new RuntimeException("Return quantity exceeds the remaining quantity on invoice line {$saleItemId}.");
                 }
 
-                $unitPrice = (float)$saleItem['unit_price'];
+                $unitPrice = $this->getShopSaleItemPaidUnitPrice($saleItem);
                 $item['sale_item_id'] = $saleItemId;
                 $item['variant_id'] = (int)$saleItem['variant_id'];
                 $item['qty'] = $qty;
