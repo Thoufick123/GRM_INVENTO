@@ -824,6 +824,44 @@ class ShopController {
         ));
     }
 
+    private function findShopDamageForPieceTag(int $shopId, int $variantId, string $tagCode): ?array {
+        $tagCode = trim($tagCode, " \t\n\r\0\x0B\"'");
+        if ($tagCode === '') {
+            return null;
+        }
+
+        $damageRecords = Database::fetchAll(
+            "SELECT damage_number, tag_code
+             FROM shop_damages
+             WHERE shop_id = ? AND variant_id = ? AND status <> 'RESTOCKED'
+               AND tag_code IS NOT NULL AND tag_code <> ''",
+            [$shopId, $variantId]
+        );
+
+        foreach ($damageRecords as $damageRecord) {
+            $storedTags = (string)$damageRecord['tag_code'];
+            $decodedTags = json_decode($storedTags, true);
+            if (is_array($decodedTags)) {
+                $storedTags = array_map(
+                    static fn($tag): string => is_array($tag)
+                        ? (string)($tag['tag_code'] ?? $tag['qr_code'] ?? '')
+                        : (string)$tag,
+                    $decodedTags
+                );
+            } else {
+                $storedTags = preg_split('/[,|]/', $storedTags) ?: [];
+            }
+
+            foreach ($storedTags as $storedTag) {
+                if (strcasecmp(trim((string)$storedTag, " \t\n\r\0\x0B\"'"), $tagCode) === 0) {
+                    return $damageRecord;
+                }
+            }
+        }
+
+        return null;
+    }
+
     public function ajaxReturnsLookup(): void {
         $term = trim($_REQUEST['q'] ?? $_REQUEST['query'] ?? $_REQUEST['term'] ?? $_REQUEST['invoice_number'] ?? $_REQUEST['search'] ?? '');
         $requestedSaleId = (int)($_REQUEST['sale_id'] ?? 0);
@@ -959,6 +997,19 @@ class ShopController {
                 Response::jsonError('Scanned replacement was not found as an available product in this shop.');
                 return;
             }
+            $damageRecord = $this->findShopDamageForPieceTag(
+                $shopId,
+                (int)$replacement['id'],
+                (string)$replacement['matched_scan_code']
+            );
+            if ($damageRecord) {
+                Response::jsonError(
+                    "This piece tag is allocated to Damage Management"
+                    . (!empty($damageRecord['damage_number']) ? " ({$damageRecord['damage_number']})" : '')
+                    . ' and cannot be used as a replacement.'
+                );
+                return;
+            }
             if ((float)$replacement['available_stock'] <= 0) {
                 Response::jsonError('This replacement is not available in shop inventory.');
                 return;
@@ -1058,6 +1109,20 @@ class ShopController {
 
                 if (!$scanMatches) {
                     continue;
+                }
+
+                $damageRecord = $this->findShopDamageForPieceTag(
+                    $shopId,
+                    (int)$saleItem['variant_id'],
+                    $matchedTagCode
+                );
+                if ($damageRecord) {
+                    Response::jsonError(
+                        "Piece tag '{$matchedTagCode}' is allocated to Damage Management"
+                        . (!empty($damageRecord['damage_number']) ? " ({$damageRecord['damage_number']})" : '')
+                        . ' and cannot be returned or exchanged.'
+                    );
+                    return;
                 }
 
                 $returnedQty = Database::fetchOne(
@@ -1288,6 +1353,25 @@ class ShopController {
                     throw new RuntimeException("Return quantity exceeds the remaining quantity on invoice line {$saleItemId}.");
                 }
 
+                $submittedPieceTags = $item['piece_tags'] ?? [];
+                if (!is_array($submittedPieceTags)) {
+                    $submittedPieceTags = preg_split('/[,|]/', (string)$submittedPieceTags) ?: [];
+                }
+                foreach ($submittedPieceTags as $pieceTag) {
+                    $damageRecord = $this->findShopDamageForPieceTag(
+                        $shopId,
+                        (int)$saleItem['variant_id'],
+                        (string)$pieceTag
+                    );
+                    if ($damageRecord) {
+                        throw new RuntimeException(
+                            "Piece tag '{$pieceTag}' is allocated to Damage Management"
+                            . (!empty($damageRecord['damage_number']) ? " ({$damageRecord['damage_number']})" : '')
+                            . ' and cannot be returned or exchanged.'
+                        );
+                    }
+                }
+
                 $unitPrice = $this->getShopSaleItemPaidUnitPrice($saleItem);
                 $item['sale_item_id'] = $saleItemId;
                 $item['variant_id'] = (int)$saleItem['variant_id'];
@@ -1303,6 +1387,14 @@ class ShopController {
                     $replacementTag = trim((string)($item['replacement_tag'] ?? ''));
                     if ($swapVariantId <= 0 || $replacementTag === '') {
                         throw new RuntimeException('Scan an available replacement product for every item being exchanged.');
+                    }
+                    $damageRecord = $this->findShopDamageForPieceTag($shopId, $swapVariantId, $replacementTag);
+                    if ($damageRecord) {
+                        throw new RuntimeException(
+                            "Replacement piece tag '{$replacementTag}' is allocated to Damage Management"
+                            . (!empty($damageRecord['damage_number']) ? " ({$damageRecord['damage_number']})" : '')
+                            . ' and cannot be exchanged.'
+                        );
                     }
                     $scannedReplacement = $this->findExactShopReplacement($replacementTag, $shopId);
                     if (!$scannedReplacement || (int)$scannedReplacement['id'] !== $swapVariantId) {
@@ -1346,6 +1438,16 @@ class ShopController {
                         throw new RuntimeException('Each replacement product must have a valid variant and quantity.');
                     }
                     $replacementTag = trim((string)($replacement['piece_tag'] ?? ''));
+                    $damageRecord = $replacementTag !== ''
+                        ? $this->findShopDamageForPieceTag($shopId, $replacementVariantId, $replacementTag)
+                        : null;
+                    if ($damageRecord) {
+                        throw new RuntimeException(
+                            "Replacement piece tag '{$replacementTag}' is allocated to Damage Management"
+                            . (!empty($damageRecord['damage_number']) ? " ({$damageRecord['damage_number']})" : '')
+                            . ' and cannot be exchanged.'
+                        );
+                    }
                     $scannedReplacement = $replacementTag !== ''
                         ? $this->findExactShopReplacement($replacementTag, $shopId)
                         : null;
