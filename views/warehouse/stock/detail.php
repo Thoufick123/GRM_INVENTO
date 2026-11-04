@@ -193,8 +193,8 @@
                                         <span class="badge bg-primary text-white ms-1" style="font-size: 0.65rem;"><i class="bi bi-check-circle-fill me-1"></i>Active View</span>
                                     <?php endif; ?>
                                     <br>
-                                    <span class="badge bg-<?= $b['stock_state'] === 'AVAILABLE' ? 'success' : ($b['stock_state'] === 'RESERVED' ? 'warning text-dark' : 'danger') ?> small">
-                                        <?= e($b['stock_state']) ?>
+                                    <span class="badge bg-<?= match ($b['display_stock_state']) { 'AVAILABLE' => 'success', 'RESERVED' => 'warning text-dark', 'OUT OF STOCK' => 'secondary', default => 'danger' } ?> small">
+                                        <?= e($b['display_stock_state']) ?>
                                     </span>
                                 </div>
                                 <div class="text-end">

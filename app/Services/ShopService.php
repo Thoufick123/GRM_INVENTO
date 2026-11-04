@@ -2130,6 +2130,25 @@ class ShopService {
                     'inward_reference'     => $pieceAllocRef ? "Allocation #$pieceAllocRef" : 'Inward Consignment',
                 ];
             }
+
+            if (!$isSingleQrProduct) {
+                $availableTagLimit = max(0, (int)floor((float)($item['available_quantity'] ?? $item['quantity'] ?? 0)));
+                $availableTagIndexes = [];
+                foreach ($pieces as $pieceIndex => $piece) {
+                    if (in_array(strtoupper((string)$piece['status']), ['AVAILABLE', 'IN STOCK'], true)) {
+                        $availableTagIndexes[] = $pieceIndex;
+                    }
+                }
+
+                usort($availableTagIndexes, static function (int $left, int $right) use ($pieces): int {
+                    return (int)!empty($pieces[$right]['is_restocked']) <=> (int)!empty($pieces[$left]['is_restocked'])
+                        ?: $left <=> $right;
+                });
+                foreach (array_slice($availableTagIndexes, $availableTagLimit) as $pieceIndex) {
+                    $pieces[$pieceIndex]['status'] = 'Out of Stock';
+                }
+            }
+
             $item['individual_pieces'] = $pieces;
             $item['inward_reference'] = $allocRef ? "Allocation #$allocRef" : '';
             $item['sold_quantity'] = $totalSoldQuantity;

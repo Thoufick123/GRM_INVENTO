@@ -1285,6 +1285,7 @@ function openProductDetailModal(variantId) {
                         const isSold = (p.is_sold || (p.status && p.status.toLowerCase() === 'sold')) && !isRestocked;
                         const isDamaged = p.is_damaged || (p.status && p.status.toLowerCase() === 'damaged');
                         const isReturned = p.is_returned || (p.status && p.status.toLowerCase() === 'returned');
+                        const isUnavailable = (p.status || '').toUpperCase() === 'OUT OF STOCK';
 
                         let statusBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle small font-monospace"><i class="bi bi-check2 me-1"></i>In Stock</span>`;
                         let cardBg = 'bg-white';
@@ -1304,6 +1305,9 @@ function openProductDetailModal(variantId) {
                         } else if (isExchanged) {
                             statusBadge = `<span class="badge bg-info text-dark border border-info small font-monospace"><i class="bi bi-arrow-repeat me-1"></i>Exchanged</span>`;
                             cardBg = 'border-info border-opacity-50 bg-info-subtle bg-opacity-25';
+                        } else if (isUnavailable) {
+                            statusBadge = `<span class="badge bg-secondary text-white border border-secondary small font-monospace"><i class="bi bi-box me-1"></i>Out of Stock</span>`;
+                            cardBg = 'border-secondary border-opacity-50 bg-secondary-subtle bg-opacity-25';
                         }
 
                         const categoryHierarchy = [p.category_name, p.subcategory_name, p.sub_subcategory_name]

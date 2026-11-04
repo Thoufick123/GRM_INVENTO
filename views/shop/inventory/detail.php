@@ -432,6 +432,7 @@ $metrics = $metrics ?? [
                                 $isDamaged = !empty($pt['is_damaged']) || ($st === 'DAMAGED');
                                 $isPartialDamage = !empty($pt['is_partial_damage']) || $st === 'PARTIALLY DAMAGED';
                                 $isSold = !empty($pt['is_sold']) || ($st === 'SOLD');
+                                $isUnavailable = $st === 'OUT OF STOCK';
                                 
                                 $cardBorder = match(true) {
                                     $isRestocked => 'border-success shadow',
@@ -440,6 +441,7 @@ $metrics = $metrics ?? [
                                     $isPartialDamage     => 'border-warning',
                                     $isDamaged           => 'border-danger',
                                     $isSold              => 'border-secondary-subtle',
+                                    $isUnavailable       => 'border-secondary',
                                     $st === 'AVAILABLE'  => 'border-success',
                                     $st === 'IN_TRANSIT' => 'border-warning',
                                     default              => 'border-secondary'
@@ -452,6 +454,7 @@ $metrics = $metrics ?? [
                                     $isPartialDamage     => '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning fw-bold"><i class="bi bi-exclamation-circle me-1"></i>PARTIALLY DAMAGED</span>',
                                     $isDamaged   => '<span class="badge bg-danger text-white fw-bold shadow-sm"><i class="bi bi-shield-x me-1"></i>DAMAGED (QUARANTINED)</span>',
                                     $isSold      => '<span class="badge bg-secondary text-white fw-bold shadow-sm"><i class="bi bi-cart-check-fill me-1"></i>SOLD IN INVOICE</span>',
+                                    $isUnavailable => '<span class="badge bg-secondary text-white fw-bold shadow-sm"><i class="bi bi-box me-1"></i>OUT OF STOCK</span>',
                                     $st === 'AVAILABLE'  => '<span class="badge bg-success-subtle text-success border border-success-subtle fw-bold"><i class="bi bi-check-circle me-1"></i>AVAILABLE IN STOCK</span>',
                                     $st === 'IN_TRANSIT' => '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold"><i class="bi bi-truck me-1"></i>IN-TRANSIT</span>',
                                     default              => '<span class="badge bg-light text-dark border">' . htmlspecialchars($st) . '</span>'

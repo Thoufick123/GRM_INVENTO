@@ -453,8 +453,8 @@ if (!function_exists('renderCategoryTypeBadge')) {
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?= $item['stock_state'] === 'AVAILABLE' ? 'success' : ($item['stock_state'] === 'RESERVED' ? 'warning' : 'danger') ?>">
-                                            <?= e($item['stock_state']) ?>
+                                        <span class="badge bg-<?= match ($item['display_stock_state']) { 'AVAILABLE' => 'success', 'RESERVED' => 'warning', 'OUT OF STOCK' => 'secondary', default => 'danger' } ?><?= $item['display_stock_state'] === 'RESERVED' ? ' text-dark' : '' ?>">
+                                            <?= e($item['display_stock_state']) ?>
                                         </span>
                                     </td>
                                     <td>
@@ -604,8 +604,8 @@ if (!function_exists('renderCategoryTypeBadge')) {
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?= $item['stock_state'] === 'AVAILABLE' ? 'success' : ($item['stock_state'] === 'RESERVED' ? 'warning' : 'danger') ?>">
-                                            <?= e($item['stock_state']) ?>
+                                        <span class="badge bg-<?= match ($item['display_stock_state']) { 'AVAILABLE' => 'success', 'RESERVED' => 'warning', 'OUT OF STOCK' => 'secondary', default => 'danger' } ?><?= $item['display_stock_state'] === 'RESERVED' ? ' text-dark' : '' ?>">
+                                            <?= e($item['display_stock_state']) ?>
                                         </span>
                                     </td>
                                     <td>
@@ -758,8 +758,8 @@ if (!function_exists('renderCategoryTypeBadge')) {
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?= $item['stock_state'] === 'AVAILABLE' ? 'success' : ($item['stock_state'] === 'RESERVED' ? 'warning' : 'danger') ?>">
-                                            <?= e($item['stock_state']) ?>
+                                        <span class="badge bg-<?= match ($item['display_stock_state']) { 'AVAILABLE' => 'success', 'RESERVED' => 'warning', 'OUT OF STOCK' => 'secondary', default => 'danger' } ?><?= $item['display_stock_state'] === 'RESERVED' ? ' text-dark' : '' ?>">
+                                            <?= e($item['display_stock_state']) ?>
                                         </span>
                                     </td>
                                     <td>

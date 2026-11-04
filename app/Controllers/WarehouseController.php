@@ -1001,6 +1001,9 @@ class WarehouseController {
         $compValuation = 0.0;
 
         foreach ($stockItems as $item) {
+            $item['display_stock_state'] = (
+                ($item['stock_state'] ?? '') === 'AVAILABLE' && (float)($item['quantity'] ?? 0) <= 0
+            ) ? 'OUT OF STOCK' : ($item['stock_state'] ?? '');
             $isComp = (!empty($item['is_complementary']) || !empty($item['variant_is_complementary']) || ($item['warehouse_category_type'] ?? '') === 'COMPLEMENTARY');
             $isSeries = (($item['qr_type'] ?? '') === 'SERIES_BATCH' || ($item['warehouse_category_type'] ?? '') === 'SERIES' || (int)($item['pack_quantity'] ?? 1) > 1);
             if ($isComp) {
@@ -1349,6 +1352,9 @@ class WarehouseController {
         foreach ($balances as &$b) {
             $isThisWh = ($selectedWarehouseId && (int)$b['location_id'] === (int)$selectedWarehouseId);
             $b['is_selected'] = $isThisWh;
+            $b['display_stock_state'] = (
+                ($b['stock_state'] ?? '') === 'AVAILABLE' && (float)($b['quantity'] ?? 0) <= 0
+            ) ? 'OUT OF STOCK' : ($b['stock_state'] ?? '');
 
             if ($b['stock_state'] === 'AVAILABLE') {
                 $warehouseAvailMap[(int)$b['location_id']] = (int)$b['quantity'];
