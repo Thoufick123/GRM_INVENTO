@@ -750,6 +750,27 @@ class ShopService {
             }
         }
 
+        // Resolve warehouse-damage tags even when their original allocation is no longer available.
+        foreach ($candidates as $cand) {
+            $damage = Database::fetchOne(
+                "SELECT variant_id
+                 FROM warehouse_damages
+                 WHERE tag_code = ? OR damage_number = ?
+                 ORDER BY id DESC
+                 LIMIT 1",
+                [$cand, $cand]
+            );
+            if ($damage && !empty($damage['variant_id'])) {
+                $variant = Database::fetchOne(
+                    $baseSql . "AND pv.id = ? LIMIT 1",
+                    [(int)$damage['variant_id']]
+                );
+                if ($variant) {
+                    return self::formatVariantForPOS($variant, $shopId, $pieceTag ?? $cand, $parsedMrp, $parsedSellingPrice);
+                }
+            }
+        }
+
         // 4. Piece-Level Tag Code Search in Allocation Items (e.g. BSP092608, TTT092611)
         foreach ($candidates as $cand) {
             $allocItem = Database::fetchOne(
@@ -835,6 +856,19 @@ class ShopService {
             return null;
         }
 
+        $warehouseDamage = Database::fetchOne(
+            "SELECT id, damage_number, tag_code
+             FROM warehouse_damages
+             WHERE variant_id = ? AND (tag_code = ? OR damage_number = ?)
+             ORDER BY id DESC
+             LIMIT 1",
+            [$variantId, $normalizedTag, $normalizedTag]
+        );
+        if ($warehouseDamage) {
+            $warehouseDamage['damage_source'] = 'WAREHOUSE';
+            return $warehouseDamage;
+        }
+
         $damageRecords = Database::fetchAll(
             "SELECT id, damage_number, tag_code
              FROM shop_damages
@@ -846,6 +880,7 @@ class ShopService {
         foreach ($damageRecords as $damage) {
             foreach (ShopDamage::resolvePieceTags($damage) as $damageTag) {
                 if (strtoupper(trim($damageTag)) === $normalizedTag) {
+                    $damage['damage_source'] = 'SHOP';
                     return $damage;
                 }
             }
@@ -1086,6 +1121,9 @@ class ShopService {
 
                         $damageRecord = self::findDamageForPieceTag($variantId, $t);
                         if ($damageRecord) {
+                            if (($damageRecord['damage_source'] ?? '') === 'WAREHOUSE') {
+                                throw new RuntimeException("This product is in the Warehouse Damage module and cannot be billed.");
+                            }
                             throw new RuntimeException("Piece QR '{$t}' is recorded as damaged in Damage #{$damageRecord['damage_number']}. Damaged products cannot be billed.");
                         }
                         

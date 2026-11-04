@@ -563,7 +563,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     // 1. Damaged piece tags cannot be billed.
                     if (variant.is_damaged) {
                         playDuplicateAlert();
-                        scanStatus.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> <strong class="text-danger">DAMAGED ITEM:</strong> Piece Tag <code>${escapeHtml(variant.scanned_piece_tag || code)}</code> is recorded in Damage #<strong>${escapeHtml(variant.damage_number)}</strong>. Cannot bill this product.`;
+                        const message = variant.damage_source === 'WAREHOUSE'
+                            ? 'This product is in the Warehouse Damage module and cannot be billed.'
+                            : `Piece Tag <code>${escapeHtml(variant.scanned_piece_tag || code)}</code> is recorded in Damage #<strong>${escapeHtml(variant.damage_number)}</strong>. Cannot bill this product.`;
+                        scanStatus.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> <strong class="text-danger">${variant.damage_source === 'WAREHOUSE' ? 'WAREHOUSE DAMAGE:' : 'DAMAGED ITEM:'}</strong> ${message}`;
                         scanStatus.className = 'text-danger fw-bold';
                         return;
                     }

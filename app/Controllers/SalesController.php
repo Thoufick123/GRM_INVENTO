@@ -104,6 +104,22 @@ class SalesController {
         return $codes;
     }
 
+    private function findWarehouseDamageForPieceTag(string $tag): ?array {
+        $tag = strtoupper(trim($tag));
+        if ($tag === '') {
+            return null;
+        }
+
+        return Database::fetchOne(
+            "SELECT damage_number
+             FROM warehouse_damages
+             WHERE tag_code = ? OR damage_number = ?
+             ORDER BY id DESC
+             LIMIT 1",
+            [$tag, $tag]
+        );
+    }
+
     private function assertChannelPieceTagsReceived(array $tags, int $variantId, string $channelType, array $channelIds): void {
         if (empty($tags)) {
             return;
@@ -212,6 +228,11 @@ class SalesController {
             }
             $tagValue = trim($tagValue);
             $tags = array_values(array_unique(array_filter(array_map('trim', explode(',', $tagValue)))));
+            foreach ($tags as $tag) {
+                if ($this->findWarehouseDamageForPieceTag($tag)) {
+                    throw new RuntimeException("This product is in the Warehouse Damage module and cannot be billed.");
+                }
+            }
             if (!$isAggregateStock && count($tags) !== $quantity) {
                 throw new RuntimeException("Scan one available piece QR for each unit of normal product '{$variant['sku']}'.");
             }
@@ -311,6 +332,11 @@ class SalesController {
         }
 
         try {
+            if ($pieceTag !== '' && $this->findWarehouseDamageForPieceTag($pieceTag)) {
+                Response::jsonError('This product is in the Warehouse Damage module and cannot be billed.', [], 422);
+                return;
+            }
+
             $channelIds = $this->getSalesChannelLocationIds($channelType);
             $availableByVariant = $this->getSalesChannelAvailableStock($channelIds);
             $available = (float)($availableByVariant[$variantId] ?? 0);
@@ -447,10 +473,32 @@ class SalesController {
             }
         }
 
+        $variantIds = array_values(array_unique(array_filter(array_map(
+            static fn(array $variant): int => (int)($variant['id'] ?? 0),
+            $variants
+        ))));
+        if ($variantIds) {
+            $variantPlaceholders = implode(',', array_fill(0, count($variantIds), '?'));
+            $warehouseDamageTags = Database::fetchAll(
+                "SELECT variant_id, tag_code
+                 FROM warehouse_damages
+                 WHERE variant_id IN ({$variantPlaceholders})
+                   AND tag_code IS NOT NULL AND tag_code != ''",
+                $variantIds
+            );
+            foreach ($warehouseDamageTags as $damageTag) {
+                $vid = (int)$damageTag['variant_id'];
+                $tag = strtoupper(trim((string)$damageTag['tag_code']));
+                if ($tag !== '') {
+                    $variantTagsMap[$vid][] = $tag;
+                }
+            }
+        }
+
         foreach ($variants as &$v) {
             $vid = (int)$v['id'];
             $pId = (int)($v['product_id'] ?? 0);
-            $tagsList = $variantTagsMap[$vid] ?? [];
+            $tagsList = array_values(array_unique($variantTagsMap[$vid] ?? []));
 
             // Dynamic Prefix from category/subcategory/sub-subcategory initials (e.g. Girls + Tops -> GT)
             $c1 = !empty($v['category_name']) ? trim($v['category_name']) : (!empty($v['category_code']) ? trim($v['category_code']) : '');
