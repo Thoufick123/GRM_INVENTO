@@ -2971,9 +2971,6 @@ class ShopController {
                     || strtoupper((string)$productType['qr_type']) === 'SERIES_BATCH'
                     || (int)$productType['pack_quantity'] > 1
                 );
-                if (!$isSeries && !$isComplementary) {
-                    throw new RuntimeException('Only Series or Complementary products can be scanned into the shop damage module.');
-                }
                 $qty = ($isSeries || $isComplementary)
                     ? max(1, (int)($it['quantity'] ?? 1))
                     : 1;
@@ -3548,14 +3545,6 @@ class ShopController {
                 || strtoupper((string)($foundVariant['qr_type'] ?? '')) === 'SERIES_BATCH'
                 || (int)($foundVariant['pack_quantity'] ?? 1) > 1
             );
-            if (!$isReturnLookup && !$isSeries && !$isComplementary) {
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Normal products cannot be scanned into the shop damage module. Only Series or Complementary products are allowed.',
-                ]);
-                exit;
-            }
-
             if (!$isReturnLookup && (float)($foundVariant['available_qty'] ?? 0) <= 0) {
                 echo json_encode([
                     'success' => false,

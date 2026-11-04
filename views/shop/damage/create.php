@@ -267,7 +267,7 @@
                     feedback.classList.add(added ? 'alert-success' : 'alert-warning');
                     feedbackMsg.textContent = added
                         ? `Found: ${res.product_name} (${res.sku})`
-                        : 'This product is already in the damage queue or is not allowed for damage scanning.';
+                        : 'This product is already in the damage queue.';
                     document.getElementById('scanInput').value = '';
                     document.getElementById('liveSearchResults').classList.add('d-none');
                     setTimeout(() => feedback.classList.add('d-none'), 2000);
@@ -294,7 +294,6 @@
         );
         const productType = isComplementary ? 'COMPLEMENTARY' : (isSeries ? 'SERIES' : 'NORMAL');
         const quantityEditable = productType !== 'NORMAL';
-        if (!quantityEditable) return false;
         const existingIdx = queueItems.findIndex(x => x.variant_id === prod.variant_id && x.tag_code === prod.tag_code);
         if (existingIdx !== -1) {
             if (!quantityEditable) return false;
