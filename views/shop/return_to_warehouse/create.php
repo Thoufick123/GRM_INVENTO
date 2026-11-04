@@ -258,12 +258,7 @@ thead th.sticky-col-select {
                         <label for="damageScanInput" class="form-label fw-bold small text-dark mb-2">
                             <i class="bi bi-qr-code-scan text-danger me-1"></i>Scan Product for Warehouse Dispatch
                         </label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-danger text-white border-0"><i class="bi bi-upc-scan"></i></span>
-                            <input type="text" id="damageScanInput" class="form-control font-monospace" placeholder="Scan available or damaged QR/SKU and press Enter" autocomplete="off" autofocus>
-                            <button type="button" class="btn btn-danger" id="btnDamageScan">Add to Dispatch</button>
-                        </div>
-                        <div class="d-flex align-items-center gap-3 mt-2 small">
+                        <div class="d-flex align-items-center gap-3 mb-2 small">
                             <span class="text-muted fw-semibold">Scan from:</span>
                             <label class="form-check mb-0">
                                 <input class="form-check-input" type="radio" name="scanStockPool" value="AVAILABLE" checked>
@@ -273,6 +268,11 @@ thead th.sticky-col-select {
                                 <input class="form-check-input" type="radio" name="scanStockPool" value="DAMAGED">
                                 <span class="form-check-label text-danger fw-semibold">Damaged Stock</span>
                             </label>
+                        </div>
+                        <div class="input-group">
+                            <span class="input-group-text bg-danger text-white border-0"><i class="bi bi-upc-scan"></i></span>
+                            <input type="text" id="damageScanInput" class="form-control font-monospace" placeholder="Scan available or damaged QR/SKU and press Enter" autocomplete="off" autofocus>
+                            <button type="button" class="btn btn-danger" id="btnDamageScan">Add to Dispatch</button>
                         </div>
                         <small id="damageScanStatus" class="text-muted d-block mt-2">Available and damaged shop stock can be scanned for warehouse dispatch.</small>
                     </div>
