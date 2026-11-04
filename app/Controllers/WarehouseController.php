@@ -3554,6 +3554,24 @@ class WarehouseController {
         return $restock ? null : $soldTag;
     }
 
+    private function findSoldSalesQrTag(string $tagCode): ?array {
+        $tagCode = strtoupper(trim($tagCode));
+        if ($tagCode === '') {
+            return null;
+        }
+
+        return Database::fetchOne(
+            "SELECT s.invoice_number, si.variant_id
+             FROM sale_items si
+             JOIN sales s ON s.id = si.sale_id
+             WHERE FIND_IN_SET(?, REPLACE(UPPER(COALESCE(si.scanned_qr_codes, '')), ' ', '')) > 0
+               AND s.status NOT IN ('CANCELLED', 'VOID')
+             ORDER BY s.id DESC, si.id DESC
+             LIMIT 1",
+            [$tagCode]
+        );
+    }
+
     private function findDispatchedWhatsappTag(string $tagCode, int $warehouseId = 0): ?array {
         $outwardTag = Database::fetchOne(
             "SELECT ao.outward_number, sc.name as channel_name, pv.id as variant_id,
@@ -6323,6 +6341,20 @@ class WarehouseController {
                         return;
                     }
 
+                    $directPurchaseSoldTag = $this->findDirectPurchaseSoldTag($stagUpper);
+                    if ($directPurchaseSoldTag) {
+                        Session::flash('error', "Cannot save: QR tag '{$stagUpper}' was already sold in Direct Purchase #{$directPurchaseSoldTag['po_number']} and cannot be allocated.");
+                        Response::redirect(url('warehouse/allocation/create'));
+                        return;
+                    }
+
+                    $soldSalesTag = $this->findSoldSalesQrTag($stagUpper);
+                    if ($soldSalesTag) {
+                        Session::flash('error', "Cannot save: QR tag '{$stagUpper}' was already sold on invoice #{$soldSalesTag['invoice_number']} and cannot be allocated.");
+                        Response::redirect(url('warehouse/allocation/create'));
+                        return;
+                    }
+
                     if (isset($seenInSubmission[$stagUpper])) {
                         $vCheck = Database::fetchOne(
                             "SELECT pv.id, pv.qr_type, pv.pack_quantity,
@@ -7438,6 +7470,28 @@ class WarehouseController {
                 'message' => 'The scanned product variant is no longer available. Please scan the QR code again.'
             ]);
             exit;
+        }
+
+        if (strcasecmp(trim((string)$extractedTag), trim((string)$variant['sku'])) !== 0) {
+            $directPurchaseSoldTag = $this->findDirectPurchaseSoldTag((string)$extractedTag);
+            if ($directPurchaseSoldTag) {
+                echo json_encode([
+                    'success' => false,
+                    'is_sold' => true,
+                    'message' => "QR tag '{$extractedTag}' was already sold in Direct Purchase #{$directPurchaseSoldTag['po_number']} and cannot be allocated."
+                ]);
+                exit;
+            }
+
+            $soldSalesTag = $this->findSoldSalesQrTag((string)$extractedTag);
+            if ($soldSalesTag) {
+                echo json_encode([
+                    'success' => false,
+                    'is_sold' => true,
+                    'message' => "QR tag '{$extractedTag}' was already sold on invoice #{$soldSalesTag['invoice_number']} and cannot be allocated."
+                ]);
+                exit;
+            }
         }
 
         // Fetch Source Warehouse name for friendly messages
