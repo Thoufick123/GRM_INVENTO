@@ -3009,6 +3009,50 @@ class WarehouseController {
             if ($variant) break;
         }
 
+        // Generated complementary QR codes are stored in the warehouse QR registry,
+        // rather than in product_variants.qr_code.
+        if (!$variant) {
+            foreach ($candidateCodes as $c) {
+                if (empty($c)) continue;
+                $registryWarehouseFilter = $warehouseId > 0
+                    ? " AND (wqr.warehouse_id = ? OR wqr.warehouse_id IS NULL)"
+                    : "";
+                $registryParams = [$c];
+                if ($warehouseId > 0) {
+                    $registryParams[] = $warehouseId;
+                }
+                $variant = Database::fetchOne(
+                    "SELECT pv.*,
+                            p.id as product_id, p.name as product_name, p.code as product_code, p.image_url as product_image,
+                            COALESCE(p.gst_percentage, 5.0) as gst_rate, p.gst_percentage,
+                            p.qr_code_prefix, p.category_code, p.subcategory_code, p.sub_subcategory_code,
+                            p.category_id, p.subcategory_id, p.sub_subcategory_id,
+                            s.name as size_name, s.code as size_code,
+                            col.name as color_name, col.hex_code as color_hex,
+                            COALESCE(wc.name, cat.name) as category_name,
+                            COALESCE(wsc.name, subcat.name) as subcategory_name,
+                            COALESCE(wssc.name, subsubcat.name) as sub_subcategory_name
+                     FROM warehouse_qr_codes wqr
+                     JOIN product_variants pv ON pv.id = wqr.variant_id
+                     JOIN products p ON pv.product_id = p.id
+                     LEFT JOIN sizes s ON pv.size_id = s.id
+                     LEFT JOIN colors col ON pv.color_id = col.id
+                     LEFT JOIN warehouse_categories wc ON p.warehouse_category_id = wc.id
+                     LEFT JOIN warehouse_subcategories wsc ON p.warehouse_subcategory_id = wsc.id
+                     LEFT JOIN warehouse_sub_subcategories wssc ON p.warehouse_sub_subcategory_id = wssc.id
+                     LEFT JOIN categories cat ON p.category_id = cat.id
+                     LEFT JOIN subcategories subcat ON p.subcategory_id = subcat.id
+                     LEFT JOIN sub_subcategories subsubcat ON p.sub_subcategory_id = subsubcat.id
+                     WHERE UPPER(wqr.qr_code) = UPPER(?)
+                       AND wqr.inwarded_at IS NOT NULL
+                       AND wqr.variant_id IS NOT NULL{$registryWarehouseFilter}
+                     LIMIT 1",
+                    $registryParams
+                );
+                if ($variant) break;
+            }
+        }
+
         // Strategy 2: Historical Inward GRN / Stock transactions / Purchase Items tag search
         if (!$variant) {
             foreach ($candidateCodes as $c) {
@@ -7026,6 +7070,35 @@ class WarehouseController {
                 [$c, $c, $c, $c, $c, $c, is_numeric($c) ? (int)$c : 0, is_numeric($c) ? (int)$c : 0]
             );
             if ($variant) break;
+        }
+
+        // Generated complementary QR codes are registered in warehouse_qr_codes,
+        // not necessarily in product_variants.qr_code.
+        if (!$variant) {
+            foreach ($candidateCodes as $c) {
+                if (empty($c)) continue;
+                $registrySql = "
+                    SELECT pv.id
+                    FROM warehouse_qr_codes wqr
+                    JOIN product_variants pv ON pv.id = wqr.variant_id
+                    WHERE UPPER(wqr.qr_code) = UPPER(?)
+                      AND wqr.inwarded_at IS NOT NULL
+                      AND wqr.variant_id IS NOT NULL";
+                $registryParams = [$c];
+                if ($warehouseId > 0) {
+                    $registrySql .= " AND (wqr.warehouse_id = ? OR wqr.warehouse_id IS NULL)";
+                    $registryParams[] = $warehouseId;
+                }
+                $registrySql .= " LIMIT 1";
+                $registeredQr = Database::fetchOne($registrySql, $registryParams);
+                if ($registeredQr) {
+                    $variant = Database::fetchOne(
+                        $baseVariantSql . " WHERE pv.id = ? LIMIT 1",
+                        [(int)$registeredQr['id']]
+                    );
+                    if ($variant) break;
+                }
+            }
         }
 
         // Strategy 2: Series Range Check directly on product_variants (series_start_code <= code <= series_end_code)
