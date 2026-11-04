@@ -15,7 +15,8 @@ if (preg_match('/(\d+)$/', $sale['invoice_number'], $m)) {
     $billNo = $m[1];
 }
 $billId = $sale['id'] ?? '1026';
-$billDate = date('d-m-Y', strtotime($sale['created_at']));
+$billDate = formatUtcDateTime($sale['created_at'] ?? null, 'd-m-Y');
+$billTime = formatUtcDateTime($sale['created_at'] ?? null, 'h:i A');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -310,7 +311,10 @@ $billDate = date('d-m-Y', strtotime($sale['created_at']));
         <span>Date: <?= e($billDate) ?></span>
     </div>
     <div class="meta-row">
+        <span>Time: <?= e($billTime) ?></span>
         <span>BID: <?= e($billId) ?></span>
+    </div>
+    <div class="meta-row">
         <?php if (!empty($sale['staff_name'])): ?>
             <span>Staff: <?= e($sale['staff_name']) ?></span>
         <?php endif; ?>

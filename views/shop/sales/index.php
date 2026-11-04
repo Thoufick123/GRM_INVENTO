@@ -185,7 +185,7 @@
                     <?php else: ?>
                         <?php foreach ($items as $idx => $it): 
                             $searchHaystack = strtolower(($it['product_name'] ?? '') . ' ' . ($it['sku'] ?? '') . ' ' . ($it['scanned_qr_codes'] ?? '') . ' ' . ($it['invoice_number'] ?? '') . ' ' . ($it['customer_name'] ?? '') . ' ' . ($it['customer_phone'] ?? '') . ' ' . ($it['size_name'] ?? '') . ' ' . ($it['color_name'] ?? ''));
-                            $saleDateFormatted = !empty($it['sale_date']) ? date('Y-m-d', strtotime($it['sale_date'])) : '';
+                            $saleDateFormatted = !empty($it['sale_date']) ? formatUtcDateTime($it['sale_date'], 'Y-m-d') : '';
                         ?>
                             <tr class="sales-row" 
                                 data-search="<?= e($searchHaystack) ?>"
@@ -226,7 +226,7 @@
                                         <i class="bi bi-receipt"></i> <?= e($it['invoice_number']) ?>
                                     </a>
                                     <div class="text-muted" style="font-size: 10px; white-space: nowrap;">
-                                        <?= formatDateTime($it['sale_date']) ?>
+                                        <?= e($it['sale_date_display'] ?? formatUtcDateTime($it['sale_date'])) ?>
                                     </div>
                                 </td>
                                 <td>
@@ -515,7 +515,10 @@
                                 <span>Date: <strong id="thBillDate">--</strong></span>
                             </div>
                             <div class="thermal-meta-row">
+                                <span>Time: <strong id="thBillTime">--</strong></span>
                                 <span>BID: <strong id="thBillId">--</strong></span>
+                            </div>
+                            <div class="thermal-meta-row">
                                 <span>Staff: <strong id="thStaffName">Cashier</strong></span>
                             </div>
 
@@ -926,7 +929,9 @@ window.populateSoldModal = function(data) {
     CURRENT_ACTIVE_INVOICE_NUM = item.invoice_number || sale.invoice_number || ('INV-' + CURRENT_ACTIVE_SALE_ID);
 
     document.getElementById('modalInvNum').innerText = CURRENT_ACTIVE_INVOICE_NUM;
-    document.getElementById('modalSubMeta').innerText = `Billed on ${formatDateTimeDisplay(item.sale_date || sale.created_at)} • ${item.shop_name || sale.shop_name || 'GRM Retail Store'}`;
+    const saleDateDisplay = item.sale_date_display || sale.created_at_display
+        || formatDateTimeDisplay(item.sale_date || sale.created_at);
+    document.getElementById('modalSubMeta').innerText = `Billed on ${saleDateDisplay} • ${item.shop_name || sale.shop_name || 'GRM Retail Store'}`;
     document.getElementById('modalInvoiceLink').href = `<?= url('shop/pos/invoice') ?>/${CURRENT_ACTIVE_SALE_ID}`;
 
     // 1. POPULATE GARMENT SPECS VIEW
@@ -1026,7 +1031,7 @@ window.populateSoldModal = function(data) {
     document.getElementById('modalCustName').innerText = item.customer_name || 'Walk-in Customer';
     document.getElementById('modalCustPhone').innerText = item.customer_phone || 'No phone recorded';
     document.getElementById('modalCashierName').innerText = item.cashier_name || item.billed_employee || 'System Staff';
-    document.getElementById('modalSaleDate').innerText = formatDateTimeDisplay(item.sale_date || sale.created_at);
+    document.getElementById('modalSaleDate').innerText = saleDateDisplay;
 
     // Product Image
     const imgEl = document.getElementById('modalProdImg');
@@ -1082,7 +1087,10 @@ window.populateSoldModal = function(data) {
     if (matchNo) billNo = matchNo[1];
 
     document.getElementById('thBillNumber').textContent = billNo;
-    document.getElementById('thBillDate').textContent = formatSimpleDate(item.sale_date || sale.created_at);
+    document.getElementById('thBillDate').textContent = sale.created_at_date_display
+        || formatSimpleDate(item.sale_date || sale.created_at);
+    document.getElementById('thBillTime').textContent = sale.created_at_time_display
+        || formatTimeDisplay(item.sale_date || sale.created_at);
     document.getElementById('thBillId').textContent = CURRENT_ACTIVE_SALE_ID || '1026';
     document.getElementById('thStaffName').textContent = sale.staff_name || item.cashier_name || 'Cashier';
     document.getElementById('thCustomerName').textContent = (item.customer_name || sale.customer_name || 'WALK-IN').toUpperCase();
@@ -1151,7 +1159,7 @@ window.populateSoldModal = function(data) {
 
     // 3. POPULATE FULL INVOICE DETAILED AUDIT VIEW
     document.getElementById('detInvNum').textContent = CURRENT_ACTIVE_INVOICE_NUM;
-    document.getElementById('detSaleDate').textContent = formatDateTimeDisplay(item.sale_date || sale.created_at);
+    document.getElementById('detSaleDate').textContent = saleDateDisplay;
     document.getElementById('detCashier').textContent = sale.staff_name || item.cashier_name || 'Staff Cashier';
     document.getElementById('detPayMode').textContent = item.payment_mode || sale.payment_mode || 'CASH';
     document.getElementById('detItemCountBadge').textContent = invoiceItems.length + (invoiceItems.length === 1 ? ' item' : ' items');
@@ -1228,6 +1236,12 @@ function formatSimpleDate(dateStr) {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
     return `${day}-${month}-${year}`;
+}
+
+function formatTimeDisplay(dateStr) {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 function escapeHtml(str) {

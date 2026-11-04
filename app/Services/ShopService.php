@@ -1156,7 +1156,7 @@ class ShopService {
                 "INSERT INTO sales (invoice_number, sale_type, shop_id, customer_id, customer_name, customer_phone, customer_address, subtotal, discount_amount, 
                                     cgst_amount, sgst_amount, igst_amount, total_amount, payment_mode, 
                                     payment_status, status, billing_staff_id, employee_name, notes, created_at)
-                 VALUES (?, 'SHOP', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0.00, ?, ?, 'PAID', 'PAID', ?, ?, ?, NOW())",
+                 VALUES (?, 'SHOP', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0.00, ?, ?, 'PAID', 'PAID', ?, ?, ?, ?)",
                 [
                     $invoiceNumber,
                     $shopId,
@@ -1173,6 +1173,7 @@ class ShopService {
                     $billingStaffId,
                     $employeeInput,
                     $notes,
+                    gmdate('Y-m-d H:i:s'),
                 ]
             );
             $saleId = (int)Database::lastInsertId();
@@ -1366,6 +1367,9 @@ class ShopService {
         );
 
         if (!$sale) return null;
+        $sale['created_at_display'] = formatUtcDateTime($sale['created_at'] ?? null);
+        $sale['created_at_date_display'] = formatUtcDateTime($sale['created_at'] ?? null, 'd-m-Y');
+        $sale['created_at_time_display'] = formatUtcDateTime($sale['created_at'] ?? null, 'h:i A');
 
         $items = Database::fetchAll(
             "SELECT si.*, pv.sku, pv.qr_code, pv.mrp, pv.selling_price, p.name as product_name, 
@@ -3517,6 +3521,7 @@ class ShopService {
 
         foreach ($items as &$it) {
             $it['image'] = !empty($it['variant_image']) ? $it['variant_image'] : ($it['product_image'] ?? null);
+            $it['sale_date_display'] = formatUtcDateTime($it['sale_date'] ?? null);
             $it['tax_total'] = (float)$it['cgst_amount'] + (float)$it['sgst_amount'] + (float)$it['igst_amount'];
 
             $qty = max(1, (int)($it['quantity'] ?? 1));

@@ -242,6 +242,21 @@ function formatDateTime(?string $datetime, string $format = 'd M Y h:i A'): stri
 }
 
 /**
+ * Format a UTC datetime using the configured application timezone.
+ */
+function formatUtcDateTime(?string $datetime, string $format = 'd M Y h:i A'): string {
+    if (!$datetime) return '-';
+
+    $applicationTimezone = function_exists('env')
+        ? (string)env('APP_TIMEZONE', 'Asia/Kolkata')
+        : date_default_timezone_get();
+    $utcDateTime = new DateTimeImmutable($datetime, new DateTimeZone('UTC'));
+    return $utcDateTime
+        ->setTimezone(new DateTimeZone($applicationTimezone))
+        ->format($format);
+}
+
+/**
  * Check if current user has a specific permission.
  * Supports both hasPermission('module.action') and hasPermission('module', 'action')
  */
