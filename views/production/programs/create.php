@@ -13,7 +13,7 @@
 
     <div class="row g-4">
         <!-- LEFT COLUMN: Program Info & Raw Material Rolls with Per-Roll Catalog -->
-        <div class="col-lg-6">
+        <div class="col-xl-7">
             <!-- 1. Program Identity -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-white py-3 border-bottom">
@@ -105,7 +105,7 @@
         </div>
 
         <!-- RIGHT COLUMN: Timeline & Additional Settings -->
-        <div class="col-lg-6">
+        <div class="col-xl-5">
             <!-- 3. Timeline & Schedule -->
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-white py-3 border-bottom">
@@ -138,7 +138,7 @@
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-3 mb-3">
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-6">
                             <?php if (!empty($scopedUnitId)): 
                                 $assignedUnitName = '';
                                 if (!empty($units)) {
@@ -176,7 +176,7 @@
                                 <small class="text-muted d-block mt-1">Optional manufacturing facility for this program</small>
                             <?php endif; ?>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold">Priority</label>
                             <select name="priority" class="form-select">
                                 <option value="LOW">Low</option>
@@ -185,7 +185,7 @@
                                 <option value="URGENT">Urgent</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-12">
                             <label class="form-label fw-semibold">Supervisor / Manager</label>
                             <select name="assigned_to" class="form-select">
                                 <option value="">Select Staff</option>
@@ -207,7 +207,7 @@
 
     <!-- Bottom Sticky Actions -->
     <div class="card shadow-sm border-0 mb-5 sticky-bottom bg-white py-3 px-4 border-top">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-grid d-sm-flex justify-content-between align-items-center gap-2">
             <a href="<?= url('production/programs') ?>" class="btn btn-outline-secondary px-4">
                 <i class="bi bi-x-circle me-1"></i> Cancel
             </a>
