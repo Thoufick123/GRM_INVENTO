@@ -7813,13 +7813,11 @@ class WarehouseController {
             }
         }
 
-        if (!$isCatalogLookup && !$registeredStockQr && !$tagExistsInPieces) {
+        if (!$isPackProduct && !$isCatalogLookup && !$registeredStockQr && !$tagExistsInPieces) {
             echo json_encode([
                 'success' => false,
                 'is_no_stock' => true,
-                'message' => $isPackProduct
-                    ? 'This Series/Complementary QR code is not in available stock in the selected warehouse.'
-                    : 'This QR code is not in available stock in the selected warehouse.'
+                'message' => 'This QR code is not in available stock in the selected warehouse.'
             ]);
             exit;
         }
