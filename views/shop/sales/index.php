@@ -160,15 +160,15 @@
                 <thead class="table-light small text-uppercase">
                     <tr>
                         <th class="ps-4" style="width: 4%;">#</th>
-                        <th style="width: 24%;">Product Details</th>
-                        <th style="width: 14%;">Piece QR Serial Tag</th>
+                        <th style="width: 20%;">Product Details</th>
+                        <th style="width: 12%;">Piece QR Serial Tag</th>
                         <th style="width: 12%;">Invoice #</th>
                         <th style="width: 12%;">Customer</th>
                         <th class="text-center" style="width: 5%;">Qty</th>
-                        <th class="text-end" style="width: 13%;">Rate &amp; Discount</th>
-                        <th class="text-end" style="width: 10%;">Net Total</th>
-                        <th class="text-center" style="width: 8%;">Mode</th>
-                        <th class="text-center pe-4" style="width: 8%;">Action</th>
+                        <th class="text-end" style="width: 12%;">Rate &amp; Discount</th>
+                        <th class="text-end" style="width: 9%;">Net Total</th>
+                        <th class="text-center" style="width: 6%;">Mode</th>
+                        <th class="text-center pe-3" style="width: 9%;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="salesTableBody">
@@ -280,8 +280,14 @@
                                     ?>
                                     <span class="badge <?= $modeBadge ?> rounded-pill px-2" style="font-size: 10px;"><?= $it['payment_mode'] === 'CASH_UPI' ? 'Cash+UPI' : e($it['payment_mode']) ?></span>
                                 </td>
-                                <td class="text-center pe-4" style="white-space: nowrap;">
-                                    <div class="d-flex justify-content-center gap-1">
+                                <td class="text-center pe-3" style="white-space: nowrap;">
+                                    <div class="d-flex justify-content-center align-items-center gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2"
+                                                onclick="openSoldProductModal(<?= (int)$it['id'] ?>, 'specs')"
+                                                aria-label="View sold product and invoice <?= e($it['invoice_number']) ?>"
+                                                title="View product and invoice details">
+                                            <i class="bi bi-eye me-1"></i>View
+                                        </button>
                                         <a href="<?= url('shop/pos/invoice/' . $it['sale_id']) ?>" target="_blank" class="btn btn-sm btn-light border rounded-circle" title="Print POS Invoice">
                                             <i class="bi bi-printer"></i>
                                         </a>
@@ -512,11 +518,10 @@
                             <!-- Bill Metadata -->
                             <div class="thermal-meta-row">
                                 <span>Bill No: <strong id="thBillNumber">--</strong></span>
-                                <span>Date: <strong id="thBillDate">--</strong></span>
+                                <span>BID: <strong id="thBillId">--</strong></span>
                             </div>
                             <div class="thermal-meta-row">
-                                <span>Time: <strong id="thBillTime">--</strong></span>
-                                <span>BID: <strong id="thBillId">--</strong></span>
+                                <span>Purchased At: <strong id="thPurchasedAt">--</strong></span>
                             </div>
                             <div class="thermal-meta-row">
                                 <span>Staff: <strong id="thStaffName">Cashier</strong></span>
@@ -1087,10 +1092,9 @@ window.populateSoldModal = function(data) {
     if (matchNo) billNo = matchNo[1];
 
     document.getElementById('thBillNumber').textContent = billNo;
-    document.getElementById('thBillDate').textContent = sale.created_at_date_display
-        || formatSimpleDate(item.sale_date || sale.created_at);
-    document.getElementById('thBillTime').textContent = sale.created_at_time_display
-        || formatTimeDisplay(item.sale_date || sale.created_at);
+    document.getElementById('thPurchasedAt').textContent = sale.created_at_display
+        || item.sale_date_display
+        || formatDateTimeDisplay(item.sale_date || sale.created_at);
     document.getElementById('thBillId').textContent = CURRENT_ACTIVE_SALE_ID || '1026';
     document.getElementById('thStaffName').textContent = sale.staff_name || item.cashier_name || 'Cashier';
     document.getElementById('thCustomerName').textContent = (item.customer_name || sale.customer_name || 'WALK-IN').toUpperCase();
@@ -1227,21 +1231,6 @@ function formatDateTimeDisplay(dateStr) {
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
            d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-}
-
-function formatSimpleDate(dateStr) {
-    if (!dateStr) return 'N/A';
-    const d = new Date(dateStr);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
-}
-
-function formatTimeDisplay(dateStr) {
-    if (!dateStr) return 'N/A';
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 function escapeHtml(str) {
