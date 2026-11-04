@@ -862,6 +862,50 @@ class ShopController {
         return null;
     }
 
+    private function findShopBilledPieceTag(int $shopId, int $variantId, string $tagCode): ?array {
+        $tagCode = trim($tagCode, " \t\n\r\0\x0B\"'");
+        if ($tagCode === '') {
+            return null;
+        }
+
+        $saleItems = Database::fetchAll(
+            "SELECT s.invoice_number, si.scanned_qr_codes, si.qr_code
+             FROM sale_items si
+             JOIN sales s ON s.id = si.sale_id
+             WHERE s.shop_id = ? AND s.sale_type = 'SHOP' AND s.status <> 'CANCELLED'
+               AND si.variant_id = ?
+               AND (si.scanned_qr_codes LIKE ? OR si.qr_code = ?)",
+            [$shopId, $variantId, '%' . $tagCode . '%', $tagCode]
+        );
+
+        foreach ($saleItems as $saleItem) {
+            if (strcasecmp(trim((string)($saleItem['qr_code'] ?? ''), " \t\n\r\0\x0B\"'"), $tagCode) === 0) {
+                return $saleItem;
+            }
+
+            $storedTags = (string)($saleItem['scanned_qr_codes'] ?? '');
+            $decodedTags = json_decode($storedTags, true);
+            if (is_array($decodedTags)) {
+                $storedTags = array_map(
+                    static fn($tag): string => is_array($tag)
+                        ? (string)($tag['tag_code'] ?? $tag['qr_code'] ?? '')
+                        : (string)$tag,
+                    $decodedTags
+                );
+            } else {
+                $storedTags = preg_split('/[,|]/', $storedTags) ?: [];
+            }
+
+            foreach ($storedTags as $storedTag) {
+                if (strcasecmp(trim((string)$storedTag, " \t\n\r\0\x0B\"'"), $tagCode) === 0) {
+                    return $saleItem;
+                }
+            }
+        }
+
+        return null;
+    }
+
     public function ajaxReturnsLookup(): void {
         $term = trim($_REQUEST['q'] ?? $_REQUEST['query'] ?? $_REQUEST['term'] ?? $_REQUEST['invoice_number'] ?? $_REQUEST['search'] ?? '');
         $requestedSaleId = (int)($_REQUEST['sale_id'] ?? 0);
@@ -995,6 +1039,19 @@ class ShopController {
             $replacement = $this->findExactShopReplacement((string)$rawCode, $shopId);
             if (!$replacement) {
                 Response::jsonError('Scanned replacement was not found as an available product in this shop.');
+                return;
+            }
+            $billedSale = $this->findShopBilledPieceTag(
+                $shopId,
+                (int)$replacement['id'],
+                (string)$replacement['matched_scan_code']
+            );
+            if ($billedSale) {
+                Response::jsonError(
+                    "This product piece was already billed"
+                    . (!empty($billedSale['invoice_number']) ? " in invoice {$billedSale['invoice_number']}" : '')
+                    . ' and cannot be scanned as a replacement.'
+                );
                 return;
             }
             $damageRecord = $this->findShopDamageForPieceTag(
@@ -1388,6 +1445,14 @@ class ShopController {
                     if ($swapVariantId <= 0 || $replacementTag === '') {
                         throw new RuntimeException('Scan an available replacement product for every item being exchanged.');
                     }
+                    $billedSale = $this->findShopBilledPieceTag($shopId, $swapVariantId, $replacementTag);
+                    if ($billedSale) {
+                        throw new RuntimeException(
+                            "Replacement piece '{$replacementTag}' was already billed"
+                            . (!empty($billedSale['invoice_number']) ? " in invoice {$billedSale['invoice_number']}" : '')
+                            . ' and cannot be exchanged.'
+                        );
+                    }
                     $damageRecord = $this->findShopDamageForPieceTag($shopId, $swapVariantId, $replacementTag);
                     if ($damageRecord) {
                         throw new RuntimeException(
@@ -1438,6 +1503,16 @@ class ShopController {
                         throw new RuntimeException('Each replacement product must have a valid variant and quantity.');
                     }
                     $replacementTag = trim((string)($replacement['piece_tag'] ?? ''));
+                    $billedSale = $replacementTag !== ''
+                        ? $this->findShopBilledPieceTag($shopId, $replacementVariantId, $replacementTag)
+                        : null;
+                    if ($billedSale) {
+                        throw new RuntimeException(
+                            "Replacement piece '{$replacementTag}' was already billed"
+                            . (!empty($billedSale['invoice_number']) ? " in invoice {$billedSale['invoice_number']}" : '')
+                            . ' and cannot be exchanged.'
+                        );
+                    }
                     $damageRecord = $replacementTag !== ''
                         ? $this->findShopDamageForPieceTag($shopId, $replacementVariantId, $replacementTag)
                         : null;
