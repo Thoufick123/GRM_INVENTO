@@ -1090,14 +1090,6 @@ class WarehouseController {
             }
         }
 
-        if ($activeTab === 'series') {
-            $productionItems = $seriesItems;
-            $thirdPartyItems = [];
-        } elseif ($activeTab === 'returned') {
-            $productionItems = $returnedItems;
-            $thirdPartyItems = [];
-        }
-
         // Complementary Sales (Realized sales from sale_items)
         $compSales = Database::fetchOne(
             "SELECT COALESCE(SUM(si.quantity), 0) as total_sold_qty,

@@ -2,6 +2,11 @@
 // views/warehouse/stock/index.php
 // Warehouse Stock Inventory — Dual Sections: Production Inward & Third-Party Vendor Inventory
 $currTab = $activeTab ?? ($_GET['tab'] ?? 'normal');
+$primaryTabItems = match ($currTab) {
+    'series' => $seriesItems ?? [],
+    'returned' => $returnedItems ?? [],
+    default => $productionItems ?? [],
+};
 
 if (!function_exists('renderCategoryTypeBadge')) {
     function renderCategoryTypeBadge(array $item): string {
@@ -363,7 +368,7 @@ if (!function_exists('renderCategoryTypeBadge')) {
             </div>
         </div>
         <div class="card-body p-0">
-            <?php if (empty($productionItems)): ?>
+            <?php if (empty($primaryTabItems)): ?>
                 <div class="text-center py-5">
                     <?php if ($currTab === 'returned'): ?>
                         <i class="bi bi-arrow-return-left fs-1 text-muted d-block mb-3"></i>
@@ -401,7 +406,7 @@ if (!function_exists('renderCategoryTypeBadge')) {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($productionItems as $item): ?>
+                            <?php foreach ($primaryTabItems as $item): ?>
                                 <tr id="stock-row-<?= $item['variant_id'] ?>">
                                     <td class="price-checkbox-col text-center" style="display: none;">
                                         <input type="checkbox" class="form-check-input price-item-checkbox" 
