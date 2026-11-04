@@ -190,17 +190,6 @@
                             <input type="hidden" name="warehouse_id" value="<?= e($scopedWarehouseId ?? ($warehouses[0]['id'] ?? '')) ?>">
                         <?php endif; ?>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Item / Variant (SKU) <span class="text-danger">*</span></label>
-                        <select name="variant_id" id="adjustmentVariantSelect" class="form-select" required>
-                            <option value="">Select Variant</option>
-                            <?php foreach ($variants as $v): ?>
-                                <option value="<?= $v['id'] ?>">
-                                    <?= e($v['sku']) ?> — <?= e($v['product_name']) ?> (<?= e($v['size_name']) ?>, <?= e($v['color_name']) ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
                     <div class="row g-2 mb-3">
                         <div class="col-6">
                             <label class="form-label small fw-semibold">Adjustment Type <span class="text-danger">*</span></label>
@@ -213,6 +202,18 @@
                             <label class="form-label small fw-semibold">Quantity (Pcs) <span class="text-danger">*</span></label>
                             <input type="number" name="quantity" id="adjustmentQuantityInput" class="form-control" min="1" step="1" value="1" required>
                         </div>
+                    </div>
+                    <div class="mb-3" id="adjustmentSkuField">
+                        <label class="form-label small fw-semibold">Item / Variant SKU <span class="text-danger">*</span></label>
+                        <select name="variant_id" id="adjustmentVariantSelect" class="form-select" required>
+                            <option value="">Select SKU</option>
+                            <?php foreach ($variants as $v): ?>
+                                <option value="<?= $v['id'] ?>">
+                                    <?= e($v['sku']) ?> — <?= e($v['product_name']) ?> (<?= e($v['size_name']) ?>, <?= e($v['color_name']) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="form-text text-muted">Select the SKU for the additional stock being reported.</small>
                     </div>
                     <div class="mb-3 d-none" id="adjustmentQrScanner">
                         <label class="form-label small fw-semibold">Scan QR codes to remove from stock <span class="text-danger">*</span></label>
@@ -246,6 +247,7 @@
                     const typeSelect = document.getElementById('adjustmentTypeSelect');
                     const quantityInput = document.getElementById('adjustmentQuantityInput');
                     const qrCodesInput = document.getElementById('adjustmentQrCodes');
+                    const skuField = document.getElementById('adjustmentSkuField');
                     const qrScanner = document.getElementById('adjustmentQrScanner');
                     const scanInput = document.getElementById('adjustmentQrScanInput');
                     const scanButton = document.getElementById('adjustmentQrScanButton');
@@ -283,18 +285,36 @@
                         qrMessage.className = 'small mt-2 text-muted';
                     }
 
-                    typeSelect.addEventListener('change', () => {
+                    function resetQrSelection() {
+                        scannedTags.splice(0, scannedTags.length);
+                        variantSelect.value = '';
+                        qrCodesInput.value = '[]';
+                        quantityInput.value = '1';
+                        qrList.replaceChildren();
+                        qrMessage.textContent = '';
+                        qrMessage.className = 'small mt-2';
+                    }
+
+                    function updateAdjustmentFields(focusField = true) {
                         const isDecrease = typeSelect.value === 'DECREASE';
+                        skuField.classList.toggle('d-none', isDecrease);
                         qrScanner.classList.toggle('d-none', !isDecrease);
+                        variantSelect.required = !isDecrease;
                         quantityInput.readOnly = isDecrease;
                         quantityInput.title = isDecrease ? 'Quantity is set by the scanned QR code(s).' : '';
-                        if (!isDecrease) {
-                            qrCodesInput.value = '[]';
-                        } else {
-                            updateQrState();
+                        if (!focusField) return;
+                        if (isDecrease) {
                             scanInput.focus();
+                        } else {
+                            variantSelect.focus();
                         }
+                    }
+
+                    typeSelect.addEventListener('change', () => {
+                        resetQrSelection();
+                        updateAdjustmentFields();
                     });
+                    warehouseSelect.addEventListener('change', resetQrSelection);
 
                     async function addScannedQr() {
                         const code = scanInput.value.trim();
@@ -367,16 +387,9 @@
                     });
 
                     document.getElementById('newAdjustmentModal').addEventListener('hidden.bs.modal', () => {
-                        scannedTags.splice(0, scannedTags.length);
-                        variantSelect.value = '';
+                        resetQrSelection();
                         typeSelect.value = 'INCREASE';
-                        quantityInput.value = '1';
-                        quantityInput.readOnly = false;
-                        quantityInput.title = '';
-                        qrScanner.classList.add('d-none');
-                        qrCodesInput.value = '[]';
-                        qrList.replaceChildren();
-                        qrMessage.textContent = '';
+                        updateAdjustmentFields(false);
                     });
                 })();
                 </script>
