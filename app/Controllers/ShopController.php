@@ -1884,7 +1884,8 @@ class ShopController {
             CASE WHEN wa.destination_type = 'SHOP' THEN NULLIF(wa.destination_id, 0) END,
             CASE WHEN LEFT(UPPER(wa.destination_type), 5) = 'SHOP_' THEN CAST(SUBSTRING(wa.destination_type, 6) AS UNSIGNED) END
         )";
-        $sql = "SELECT wa.*, 
+        $sql = "SELECT wa.*,
+                       $destinationShopIdSql as destination_shop_id,
                        w.name as warehouse_name, w.code as warehouse_code,
                        ao.outward_number, ao.vehicle_number, ao.driver_name, ao.driver_contact, ao.transporter_name, ao.lr_number, ao.total_boxes, ao.dispatch_date,
                        (SELECT COUNT(*) FROM allocation_items WHERE allocation_id = wa.id) as item_count,
@@ -2143,7 +2144,11 @@ class ShopController {
 
             $details = ShopService::getInwardAllocationDetails($allocationId);
             $allocNum = $details['allocation']['allocation_number'] ?? "#$allocationId";
-            Response::redirect(url('shop/inward/view/' . $allocationId), 'success', "Allocation $allocNum successfully verified and credited to shop inventory!");
+            Response::redirect(
+                url('shop/inventory') . '?shop_id=' . $shopId,
+                'success',
+                "Allocation $allocNum successfully verified and credited. Showing inventory for " . ($details['shop']['name'] ?? 'the destination shop') . '.'
+            );
         } catch (Exception $e) {
             Response::redirect(url('shop/inward/view/' . $allocationId), 'error', "Inward verification failed: " . $e->getMessage());
         }

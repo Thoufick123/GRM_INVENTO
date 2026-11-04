@@ -484,6 +484,11 @@ $hasMultipleShops = count($shops ?? []) > 1;
                                             <i class="bi <?= ((!$isRecv || $isPartial) && $canInward) ? 'bi-qr-code-scan' : 'bi-eye' ?> me-1"></i>
                                             <?= ((!$isRecv || $isPartial) && $canInward) ? ($isPartial ? 'Continue Inward' : 'Cross-Check &amp; Inward') : 'View Inward' ?>
                                         </a>
+                                        <a href="<?= url('shop/inventory') ?>?shop_id=<?= (int)($a['destination_shop_id'] ?? 0) ?>"
+                                           class="btn btn-sm btn-outline-success"
+                                           title="View inventory for <?= e($a['destination_shop_name'] ?? 'destination shop') ?>">
+                                            <i class="bi bi-box-seam"></i>
+                                        </a>
                                     </div>
                                 </td>
                             </tr>

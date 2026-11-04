@@ -50,6 +50,9 @@
         <span class="text-muted">Compare Outward Dispatch vs Inward Product Scans, Identify Missing QRs &amp; Update Shop Stock</span>
     </div>
     <div class="d-flex gap-2 flex-wrap">
+        <a href="<?= url('shop/inventory') ?>?shop_id=<?= (int)($shop['id'] ?? 0) ?>" class="btn btn-success">
+            <i class="bi bi-box-seam me-1"></i> View <?= e($shop['name'] ?? 'Destination') ?> Inventory
+        </a>
         <a href="<?= url('shop/inward') ?>?shop_id=<?= (int)($shop['id'] ?? 0) ?>" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i> Inward Queue
         </a>
