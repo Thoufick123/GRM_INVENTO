@@ -43,18 +43,14 @@
                     <span class="small text-muted">Direct Warehouse Sales &amp; Dispatch Division</span>
                 </div>
             </div>
-            <p class="text-muted small mb-0">
-                <strong>Dispatch Warehouse:</strong> <?= e($po['warehouse_name'] ?? 'Main Warehouse') ?> (<?= e($po['warehouse_code'] ?? 'WH') ?>)<br>
-                <strong>GSTIN:</strong> 33AAACG1234F1Z5 &nbsp;|&nbsp; <strong>State Code:</strong> 33 (Tamil Nadu)<br>
-                <strong>Email:</strong> sales@grmapparels.com &nbsp;|&nbsp; <strong>Phone:</strong> +91 421 2233445
-            </p>
         </div>
         <div class="col-sm-5 text-sm-end mt-3 mt-sm-0">
             <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 fw-bold mb-2 d-inline-block">
                 TAX INVOICE / DIRECT SALE
             </span>
             <div class="font-monospace fw-bold fs-5 text-primary">#<?= e($po['po_number']) ?></div>
-            <div class="small text-muted">Invoice Date: <strong><?= date('d M Y', strtotime($po['order_date'])) ?></strong></div>
+            <?php $purchaseTimestamp = $po['created_at'] ?? $po['order_date'] ?? null; ?>
+            <div class="small text-muted">Purchase Date &amp; Time: <strong><?= $purchaseTimestamp ? date('d M Y, h:i A', strtotime($purchaseTimestamp)) : '—' ?></strong></div>
             <div class="small text-muted">Payment Mode: <strong class="text-dark"><?= e($po['payment_method'] ?? 'CASH') ?></strong> (<span class="text-success fw-semibold"><?= e($po['payment_status'] ?? 'PAID') ?></span>)</div>
         </div>
     </div>
