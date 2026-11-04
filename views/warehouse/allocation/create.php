@@ -1313,7 +1313,13 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(err => {
                 // Client-side fallback matching only for generic errors (never for already allocated items)
                 const clean = tagCode.replace(/[-_]\d+$/, '');
-                let local = variantsList.find(v => (v.sku || '').toUpperCase() === tagCode || (v.barcode || '').toUpperCase() === tagCode);
+                const normalizedTag = tagCode.trim().toUpperCase();
+                let local = variantsList.find(v => {
+                    const codes = [v.sku, v.barcode, v.series_start_code, v.series_end_code]
+                        .map(code => String(code || '').trim().toUpperCase());
+                    const seriesRange = codes[2] && codes[3] ? `${codes[2]} - ${codes[3]}` : '';
+                    return codes.includes(normalizedTag) || seriesRange === normalizedTag;
+                });
                 if (!local) local = variantsList.find(v => (v.sku || '').toUpperCase() === clean || (v.barcode || '').toUpperCase() === clean);
                 if (!local) local = variantsList.find(v => tagCode.startsWith((v.sku || '').toUpperCase()) || (v.sku && clean.startsWith((v.sku || '').toUpperCase())));
 
@@ -1324,7 +1330,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         clearAndRefocusScanInput();
                         return;
                     }
-                    applyScannedVariant(local, tagCode);
+                    const categoryType = getAllocationProductType(local);
+                    const availableStock = parseFloat(local.total_warehouse_stock || 0);
+                    const packQty = parseInt(local.pack_quantity || 1);
+                    applyScannedVariant({
+                        ...local,
+                        variant_id: local.id,
+                        is_series: categoryType === 'SERIES',
+                        available_stock: availableStock,
+                        total_stock: availableStock,
+                        scan_qty: Math.min(packQty, availableStock)
+                    }, tagCode);
                 } else {
                     playDuplicateSound();
                     showScanAlert('danger', `❌ <strong>Scan Failed:</strong> No product variant found matching <code>${tagCode}</code>.`);
