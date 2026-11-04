@@ -49,8 +49,12 @@
                 TAX INVOICE / DIRECT SALE
             </span>
             <div class="font-monospace fw-bold fs-5 text-primary">#<?= e($po['po_number']) ?></div>
-            <?php $purchaseTimestamp = $po['created_at'] ?? $po['order_date'] ?? null; ?>
-            <div class="small text-muted">Purchase Date &amp; Time: <strong><?= $purchaseTimestamp ? date('d M Y, h:i A', strtotime($purchaseTimestamp)) : '—' ?></strong></div>
+            <?php
+            $purchaseDateTime = !empty($po['created_at'])
+                ? formatUtcDateTime($po['created_at'], 'd M Y, h:i A')
+                : formatDate($po['order_date'] ?? null);
+            ?>
+            <div class="small text-muted">Purchase Date &amp; Time: <strong><?= e($purchaseDateTime) ?></strong></div>
             <div class="small text-muted">Payment Mode: <strong class="text-dark"><?= e($po['payment_method'] ?? 'CASH') ?></strong> (<span class="text-success fw-semibold"><?= e($po['payment_status'] ?? 'PAID') ?></span>)</div>
         </div>
     </div>
