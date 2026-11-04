@@ -1066,15 +1066,15 @@ class WarehouseController {
                     $prodValuation += $valuation;
                 }
             } else {
-                $thirdPartyItems[] = $item;
                 if ($item['category_type'] === 'SERIES') {
                     $seriesItems[] = $item;
                 } else {
+                    $thirdPartyItems[] = $item;
                     $normalItems[] = $item;
-                }
-                if ($item['stock_state'] === 'AVAILABLE') {
-                    $tpAvailableQty += $qty;
-                    $tpValuation += $valuation;
+                    if ($item['stock_state'] === 'AVAILABLE') {
+                        $tpAvailableQty += $qty;
+                        $tpValuation += $valuation;
+                    }
                 }
             }
         }
