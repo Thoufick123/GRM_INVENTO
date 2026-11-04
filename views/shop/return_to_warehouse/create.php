@@ -402,6 +402,7 @@ thead th.sticky-col-select {
                                             data-image="<?= e($imgUrl) ?>"
                                             data-stock-state="<?= e($item['stock_state']) ?>"
                                             data-piece-tags="<?= e(implode('|', $item['piece_tags'] ?? [])) ?>"
+                                            data-damaged-piece-tags="<?= e(json_encode($item['damaged_piece_tags'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>"
                                             data-category-type="<?= e($item['category_type'] ?? 'NORMAL') ?>"
                                             data-complementary="<?= !empty($item['is_complementary']) ? '1' : '0' ?>"
                                             data-qr-type="<?= e($item['qr_type'] ?? '') ?>"
@@ -417,6 +418,7 @@ thead th.sticky-col-select {
                                                 </div>
                                                 <input type="hidden" name="items[<?= $idx ?>][variant_id]" value="<?= $item['variant_id'] ?>" disabled data-idx="<?= $idx ?>">
                                                 <input type="hidden" name="items[<?= $idx ?>][stock_state]" value="<?= $item['stock_state'] ?>" disabled data-idx="<?= $idx ?>">
+                                                <input type="hidden" name="items[<?= $idx ?>][piece_tags][]" value="" disabled data-idx="<?= $idx ?>" class="scanned-piece-tag">
                                             </td>
 
                                             <!-- 2. Product Name (Exact Replica) -->
@@ -1460,6 +1462,14 @@ document.addEventListener('DOMContentLoaded', function() {
             || row.getAttribute('data-complementary') === '1'
             || (row.getAttribute('data-qr-type') || '').toUpperCase() === 'SERIES_BATCH'
             || parseInt(row.getAttribute('data-pack-quantity')) > 1;
+        const tagInput = row.querySelector('.scanned-piece-tag');
+        const pieceTags = (row.getAttribute('data-piece-tags') || '').split('|').map(tag => tag.trim().toLowerCase()).filter(Boolean);
+        const damagedTags = JSON.parse(row.getAttribute('data-damaged-piece-tags') || '[]')
+            .map(tag => String(tag).trim().toLowerCase());
+        const scannedTag = code.trim().toLowerCase();
+        if (tagInput) {
+            tagInput.value = !allowMultiple && (pieceTags.includes(scannedTag) || damagedTags.includes(scannedTag)) ? code.trim() : '';
+        }
         if (checkbox && !checkbox.checked) checkbox.checked = true;
         else if (qtyInput && allowMultiple) qtyInput.value = Math.min(maxQty, (parseInt(qtyInput.value) || 0) + 1);
         calculateConsignment();
@@ -1470,25 +1480,101 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function scanDamagedProduct() {
-        const code = (damageScanInput?.value || '').trim().toLowerCase();
-        if (!code) return;
+        const rawCode = (damageScanInput?.value || '').trim();
+        if (!rawCode) return;
         const selectedStockPool = document.querySelector('input[name="scanStockPool"]:checked')?.value || 'AVAILABLE';
         const rows = Array.from(document.querySelectorAll('.inv-row'));
-        const row = rows.find(candidate => {
-            if ((candidate.getAttribute('data-stock-state') || 'AVAILABLE').toUpperCase() !== selectedStockPool) return false;
-            const values = [
-                candidate.getAttribute('data-sku'), candidate.getAttribute('data-code'),
-                candidate.getAttribute('data-qr-code'), candidate.getAttribute('data-name'), candidate.getAttribute('data-piece-tags')
-            ].filter(Boolean).join('|').toLowerCase().split('|');
-            return values.some(value => value === code || value.includes(code));
+        const scanCandidates = [rawCode];
+        if (rawCode.startsWith('{') && rawCode.endsWith('}')) {
+            try {
+                const payload = JSON.parse(rawCode);
+                ['tag', 'tag_code', 'code', 'qr_code', 'sku'].forEach(key => {
+                    if (payload[key]) scanCandidates.push(String(payload[key]).trim());
+                });
+            } catch (error) {
+                damageScanStatus.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle me-1"></i>Invalid QR payload.</span>';
+                return;
+            }
+        } else if (rawCode.includes('|')) {
+            rawCode.split('|').forEach(part => {
+                const candidate = part.trim();
+                if (candidate && !/^(MRP|Disc|Cost|Price):/i.test(candidate)) scanCandidates.push(candidate);
+            });
+        }
+        const normalizedCandidates = [...new Set(scanCandidates.map(candidate => candidate.toLowerCase()))];
+        const damagedTagRow = rows.find(candidate => {
+            const tags = JSON.parse(candidate.getAttribute('data-damaged-piece-tags') || '[]')
+                .map(tag => String(tag).trim().toLowerCase());
+            return tags.some(tag => normalizedCandidates.includes(tag));
         });
-        if (row) {
-            selectScannedRow(row, code);
+        if (damagedTagRow) {
+            if (selectedStockPool !== 'DAMAGED') {
+                damageScanStatus.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle me-1"></i>This QR is assigned to Damage Management. Select Damaged Stock to scan it.</span>';
+                return;
+            }
+            if (damagedTagRow.getAttribute('data-stock-state') !== 'DAMAGED') {
+                damageScanStatus.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle me-1"></i>This damage-tagged piece has no damaged stock balance available for return.</span>';
+                return;
+            }
+            selectScannedRow(damagedTagRow, normalizedCandidates.find(candidate =>
+                JSON.parse(damagedTagRow.getAttribute('data-damaged-piece-tags') || '[]')
+                    .some(tag => String(tag).trim().toLowerCase() === candidate)
+            ) || rawCode);
             return;
         }
 
+        if (selectedStockPool === 'DAMAGED') {
+            const availableTagRow = rows.find(candidate => {
+                if (candidate.getAttribute('data-stock-state') !== 'AVAILABLE') return false;
+                const tags = (candidate.getAttribute('data-piece-tags') || '').split('|')
+                    .map(tag => tag.trim().toLowerCase());
+                return tags.some(tag => normalizedCandidates.includes(tag));
+            });
+            if (availableTagRow) {
+                damageScanStatus.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle me-1"></i>This QR belongs to Available Stock, not Damage Management. Select Available Stock to scan it.</span>';
+                return;
+            }
+        }
+
+        const row = rows.find(candidate => {
+            if ((candidate.getAttribute('data-stock-state') || 'AVAILABLE').toUpperCase() !== selectedStockPool) return false;
+            if (selectedStockPool === 'DAMAGED' && (candidate.getAttribute('data-category-type') || 'NORMAL').toUpperCase() === 'NORMAL'
+                && JSON.parse(candidate.getAttribute('data-damaged-piece-tags') || '[]').length > 0) return false;
+            const values = [
+                candidate.getAttribute('data-sku'), candidate.getAttribute('data-code'),
+                candidate.getAttribute('data-qr-code')
+            ].filter(Boolean).map(value => value.toLowerCase());
+            const pieceTags = (candidate.getAttribute('data-piece-tags') || '').split('|').map(value => value.toLowerCase());
+            return values.some(value => normalizedCandidates.includes(value))
+                || pieceTags.some(value => normalizedCandidates.includes(value));
+        });
+        if (row) {
+            const scannedPieceTag = normalizedCandidates.find(candidate => {
+                const pieceTags = (row.getAttribute('data-piece-tags') || '').split('|')
+                    .map(tag => tag.trim().toLowerCase());
+                const damageTags = JSON.parse(row.getAttribute('data-damaged-piece-tags') || '[]')
+                    .map(tag => String(tag).trim().toLowerCase());
+                return pieceTags.includes(candidate) || damageTags.includes(candidate);
+            });
+            selectScannedRow(row, scannedPieceTag || rawCode);
+            return;
+        }
+        if (selectedStockPool === 'DAMAGED') {
+            const damagedVariantRow = rows.find(candidate =>
+                candidate.getAttribute('data-stock-state') === 'DAMAGED'
+                && JSON.parse(candidate.getAttribute('data-damaged-piece-tags') || '[]').length > 0
+                && [candidate.getAttribute('data-sku'), candidate.getAttribute('data-code'), candidate.getAttribute('data-qr-code')]
+                    .filter(Boolean)
+                    .some(value => normalizedCandidates.includes(value.toLowerCase()))
+            );
+            if (damagedVariantRow) {
+                damageScanStatus.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle me-1"></i>This product has damage-tagged pieces. Scan the exact QR assigned in Damage Management.</span>';
+                return;
+            }
+        }
+
         damageScanStatus.innerHTML = '<span class="text-primary fw-semibold"><span class="spinner-border spinner-border-sm me-1"></span>Looking up QR code...</span>';
-        fetch(`<?= url('api/shop/damage/lookup-scan') ?>?purpose=return&code=${encodeURIComponent(code)}`)
+        fetch(`<?= url('api/shop/damage/lookup-scan') ?>?purpose=return&code=${encodeURIComponent(rawCode)}`)
             .then(response => response.json())
             .then(data => {
                 if (!data.success) throw new Error(data.message || 'Product not found');
@@ -1496,9 +1582,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 const matchedRow = rows.find(candidate =>
                     String(candidate.getAttribute('data-variant-id')) === variantId
                     && (candidate.getAttribute('data-stock-state') || 'AVAILABLE').toUpperCase() === selectedStockPool
+                    && !(selectedStockPool === 'DAMAGED'
+                        && (candidate.getAttribute('data-category-type') || 'NORMAL').toUpperCase() === 'NORMAL'
+                        && JSON.parse(candidate.getAttribute('data-damaged-piece-tags') || '[]').length > 0)
                 );
                 if (!matchedRow) throw new Error('This product has no available or damaged stock in the selected shop.');
-                selectScannedRow(matchedRow, code);
+                const scannedTag = String(data.tag_code || normalizedCandidates[0] || rawCode);
+                const rowDamageTags = JSON.parse(matchedRow.getAttribute('data-damaged-piece-tags') || '[]')
+                    .map(tag => String(tag).trim().toLowerCase());
+                if (selectedStockPool === 'DAMAGED' && rowDamageTags.length > 0 && !rowDamageTags.includes(scannedTag.toLowerCase())) {
+                    throw new Error('Scan the exact piece QR assigned to this product in Damage Management.');
+                }
+                if (selectedStockPool === 'AVAILABLE' && rowDamageTags.includes(scannedTag.toLowerCase())) {
+                    throw new Error('This QR is assigned to Damage Management. Select Damaged Stock to scan it.');
+                }
+                selectScannedRow(matchedRow, scannedTag);
             })
             .catch(error => {
                 damageScanStatus.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-x-circle me-1"></i>${escapeHtml(error.message)}</span>`;
@@ -2249,4 +2347,3 @@ document.addEventListener('DOMContentLoaded', function() {
     calculateConsignment();
 });
 </script>
-

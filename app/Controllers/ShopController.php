@@ -2641,12 +2641,28 @@ class ShopController {
             if (!isset($variantTagsMap[$vid])) {
                 $variantTagsMap[$vid] = [];
             }
-            $tags = explode(',', $at['selected_qr_codes']);
+            $decodedTags = json_decode((string)$at['selected_qr_codes'], true);
+            $tags = is_array($decodedTags) ? $decodedTags : preg_split('/[,|]/', (string)$at['selected_qr_codes']);
             foreach ($tags as $t) {
-                $trimmed = trim($t);
+                $trimmed = is_array($t)
+                    ? trim((string)($t['tag_code'] ?? $t['qr_code'] ?? ''))
+                    : trim((string)$t);
                 if ($trimmed && !in_array($trimmed, $variantTagsMap[$vid])) {
                     $variantTagsMap[$vid][] = $trimmed;
                 }
+            }
+        }
+
+        $damageCases = Database::fetchAll(
+            "SELECT variant_id, tag_code
+             FROM shop_damages
+             WHERE shop_id = ? AND status <> 'RESTOCKED' AND tag_code IS NOT NULL AND tag_code <> ''",
+            [$shopId]
+        );
+        $damagedTagsMap = [];
+        foreach ($damageCases as $damageCase) {
+            foreach (ShopDamage::resolvePieceTags($damageCase) as $damageTag) {
+                $damagedTagsMap[(int)$damageCase['variant_id']][strtoupper($damageTag)] = $damageTag;
             }
         }
 
@@ -2655,6 +2671,7 @@ class ShopController {
             $item['image'] = !empty($item['variant_image']) ? $item['variant_image'] : ($item['product_image'] ?? null);
             $vid = (int)$item['variant_id'];
             $item['piece_tags'] = $variantTagsMap[$vid] ?? [];
+            $item['damaged_piece_tags'] = array_values($damagedTagsMap[$vid] ?? []);
 
             // Group categories for filter pills
             $catName = $item['category_name'] ?? 'General';

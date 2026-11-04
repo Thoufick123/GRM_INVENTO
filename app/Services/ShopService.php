@@ -3767,6 +3767,9 @@ class ShopService {
                 $classification = strtoupper($it['classification'] ?? ($stockState === 'DAMAGED' ? 'DAMAGED' : 'GOOD'));
 
                 if ($variantId <= 0 || $qty <= 0) continue;
+                if (!in_array($stockState, ['AVAILABLE', 'DAMAGED'], true)) {
+                    throw new InvalidArgumentException("Invalid shop stock pool for warehouse return.");
+                }
 
                 // Normal garments are individual QR pieces and may only be returned one at a time.
                 // Series and complementary products represent multiple pieces and may use a quantity.
@@ -3796,6 +3799,39 @@ class ShopService {
                     $pv = Database::fetchOne("SELECT sku FROM product_variants WHERE id = ?", [$variantId]);
                     $sku = $pv['sku'] ?? "#$variantId";
                     throw new RuntimeException("Insufficient {$stockState} stock for SKU '{$sku}'. Requested: {$qty}, Available: {$currentStock}");
+                }
+
+                $pieceTags = $it['piece_tags'] ?? [];
+                if (!is_array($pieceTags)) {
+                    $pieceTags = preg_split('/[,|]/', (string)$pieceTags) ?: [];
+                }
+                if (!empty($pieceTags)) {
+                    $damageCases = Database::fetchAll(
+                        "SELECT tag_code
+                         FROM shop_damages
+                         WHERE shop_id = ? AND variant_id = ? AND status <> 'RESTOCKED'
+                           AND tag_code IS NOT NULL AND tag_code <> ''",
+                        [$shopId, $variantId]
+                    );
+                    $damagedTagSet = [];
+                    foreach ($damageCases as $damageCase) {
+                        foreach (ShopDamage::resolvePieceTags($damageCase) as $damageTag) {
+                            $damagedTagSet[strtoupper(trim($damageTag))] = true;
+                        }
+                    }
+
+                    foreach ($pieceTags as $pieceTag) {
+                        $normalizedPieceTag = strtoupper(trim((string)$pieceTag, " \t\n\r\0\x0B\"'"));
+                        if ($normalizedPieceTag === '') {
+                            continue;
+                        }
+                        if ($stockState === 'DAMAGED' && empty($damagedTagSet[$normalizedPieceTag])) {
+                            throw new RuntimeException("Piece QR '{$pieceTag}' is not allocated to Damage Management for this product.");
+                        }
+                        if ($stockState === 'AVAILABLE' && !empty($damagedTagSet[$normalizedPieceTag])) {
+                            throw new RuntimeException("Piece QR '{$pieceTag}' is assigned to Damage Management and cannot be returned from Available Stock.");
+                        }
+                    }
                 }
 
                 // Insert into warehouse_return_items
