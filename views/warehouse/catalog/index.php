@@ -271,7 +271,7 @@ $canDeleteCatalog = hasPermission('wh_catalog', 'delete');
 
 <!-- MODAL: UNIFIED ADD CATEGORY HIERARCHY & PRE-SET ATTRIBUTES -->
 <div class="modal fade" id="modalUnifiedCategory" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog category-hierarchy-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg rounded-3">
             <div class="modal-header bg-primary text-white py-3 px-4">
                 <div>
@@ -289,7 +289,7 @@ $canDeleteCatalog = hasPermission('wh_catalog', 'delete');
                             <span class="badge bg-primary rounded-pill px-3 py-1">Step 1</span>
                             <h6 class="fw-bold mb-0 text-dark">Category Hierarchy Flow</h6>
                         </div>
-                        <div class="row g-3 p-3 bg-light rounded-3 border">
+                        <div class="row g-3 p-3 bg-light rounded-3 border category-hierarchy-row">
                             <!-- 1. MAIN CATEGORY -->
                             <div class="col-md-4">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
@@ -415,7 +415,7 @@ $canDeleteCatalog = hasPermission('wh_catalog', 'delete');
 </div>
 <!-- MODAL: FULL FORM EDIT CATEGORY HIERARCHY & PRE-SET ATTRIBUTES -->
 <div class="modal fade" id="modalUnifiedEditCategory" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog category-hierarchy-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg rounded-3 overflow-hidden">
             <div class="modal-header bg-dark text-white py-3 px-4">
                 <div class="d-flex align-items-center gap-2">
@@ -441,7 +441,7 @@ $canDeleteCatalog = hasPermission('wh_catalog', 'delete');
                                 <span class="badge rounded-circle bg-primary text-white" style="width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:0.7rem;">1</span>
                                 <h6 class="fw-bold mb-0 text-dark">Category Hierarchy Flow</h6>
                             </div>
-                            <div class="row g-3">
+                            <div class="row g-3 category-hierarchy-row">
                                 <div class="col-md-4">
                                     <label class="form-label small fw-semibold text-muted mb-1">
                                         <span class="badge rounded-circle bg-primary text-white me-1" style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:.65rem;">1</span>
@@ -2985,6 +2985,17 @@ function openViewCategoryHierarchyModal(e, catId) {
 <!-- STYLES -->
 <!-- ========================================================================= -->
 <style>
+/* Give hierarchy forms enough width for category names and aligned controls. */
+.category-hierarchy-dialog { width:calc(100vw - 3rem); max-width:1140px; margin-right:auto; margin-left:auto; }
+.category-hierarchy-row > [class*="col-"] { min-width:0; }
+.category-hierarchy-row > [class*="col-"] > .d-flex { min-height:32px; gap:.35rem; }
+.category-hierarchy-row label { line-height:1.25; }
+.category-hierarchy-row .btn-xs { flex-shrink:0; }
+.category-hierarchy-dialog .form-select { width:100%; min-width:0; }
+@media (max-width:767.98px) {
+    .category-hierarchy-dialog { width:calc(100vw - 1rem); }
+}
+
 /* Header badges & level icons */
 .cat-level-num { width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:700; color:#fff; flex-shrink:0; }
 .item-icon-badge { width:32px; height:32px; border-radius:8px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:.95rem; flex-shrink:0; transition:all .15s; }
