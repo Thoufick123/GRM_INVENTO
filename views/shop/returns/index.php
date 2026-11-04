@@ -974,6 +974,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    window.lookupShopReturnSale = function(saleId) {
+        performLookup(Number(saleId) || 0);
+    };
+
     window.updateRowLineCredit = function(itemId) {
         const item = loadedOrderItemsMap[itemId];
         if (!item) return;
@@ -1331,7 +1335,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     row.addEventListener('click', function() {
                         document.getElementById('orderSearchInput').value = sale.invoice_number || '';
                         bootstrap.Modal.getOrCreateInstance(document.getElementById('newReturnModal')).show();
-                        document.getElementById('btnSearchOrder').click();
+                        window.lookupShopReturnSale(sale.id);
                     });
                     list.appendChild(row);
                 });
