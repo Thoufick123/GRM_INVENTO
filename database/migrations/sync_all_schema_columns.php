@@ -14,7 +14,10 @@ try {
     $schema = file_get_contents(BASE_PATH . '/database/schema.sql');
     preg_match_all('/CREATE TABLE `?([a-zA-Z0-9_]+)`?\s*\((.*?)\)\s*ENGINE/s', $schema, $matches, PREG_SET_ORDER);
 
-    $dbTables = array_column(Database::fetchAll('SHOW TABLES'), 'Tables_in_grm_inventory');
+    $dbTables = array_column(
+        Database::fetchAll('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()'),
+        'TABLE_NAME'
+    );
 
     $addedCount = 0;
     foreach ($matches as $match) {

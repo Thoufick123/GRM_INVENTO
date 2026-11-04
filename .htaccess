@@ -3,9 +3,10 @@ RewriteEngine On
 # DirectoryIndex configuration
 DirectoryIndex index.php public/index.php
 
-# Block direct access to internal directories
-RewriteRule ^(views|app|config|database|scratch|storage)/ - [F,L]
-RewriteRule ^(\.env|\.git|composer\.(json|lock)|package(-lock)?\.json) - [F,L]
+# Block access to application source, deployment metadata, and private configuration.
+RewriteRule ^(views|app|config|database|scratch|storage|requirements|printer_service|cron|routes|\.git|\.github|\.vscode)(/|$) - [F,L,NC]
+RewriteRule ^\.(?!well-known(?:/|$)) - [F,L]
+RewriteRule ^(README(?:\..*)?|composer\.(json|lock)|package(-lock)?\.json|.*\.md)$ - [F,L,NC]
 
 # Directly serve uploads and assets from public folder
 RewriteRule ^uploads/(.*)$ public/uploads/$1 [L]

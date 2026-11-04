@@ -28,7 +28,7 @@ class Database {
                 if (function_exists('env') && env('APP_DEBUG', false)) {
                     throw new PDOException("Database connection failed: " . $e->getMessage(), (int)$e->getCode(), $e);
                 }
-                throw new PDOException("Database connection could not be established. Please ensure MySQL service is running in XAMPP.", 2002, $e);
+                throw new PDOException("Database connection could not be established. Verify the database settings in .env and confirm the database service is available.", 2002, $e);
             }
         }
         return self::$instance;

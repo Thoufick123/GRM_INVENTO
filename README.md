@@ -23,7 +23,7 @@ An enterprise-grade, end-to-end apparel manufacturing, central warehousing, mult
    C:\xampp\htdocs\grm-inventory\
    ```
 
-2. Configure environment variables in [`.env`](file:///.env):
+2. Copy [`.env.example`](./.env.example) to `.env` and configure the local environment:
    ```env
    APP_ENV=local
    APP_NAME="GRM Inventory Management"
@@ -53,28 +53,87 @@ An enterprise-grade, end-to-end apparel manufacturing, central warehousing, mult
 
 3. Database Initialization:
    - Create database `grm_inventory` in phpMyAdmin / MySQL CLI.
-   - Import [`database/schema.sql`](file:///c:/xampp/htdocs/grm-inventory/database/schema.sql) and [`database/seed.sql`](file:///c:/xampp/htdocs/grm-inventory/database/seed.sql).
-   - Seed any missing permission records (safe to rerun):
+   - Import [`database/schema.sql`](./database/schema.sql) and [`database/seed.sql`](./database/seed.sql) into a new, empty database.
+   - Seed any missing permission records:
      ```bash
      php database/seed_permissions.php
      ```
-   - Run incremental migrations to verify all tables:
+   - To sync missing columns/tables from the canonical schema:
      ```bash
-     php database/migrations/create_expenses_and_categories_tables.php
-     php database/migrations/create_asset_tables.php
-     php database/migrations/create_cash_flow_tables.php
-     php database/migrations/add_complementary_product_columns.php
-     php database/migrations/add_inward_qr_codes_to_production_batch_items.php
-     php database/migrations/fix_warehouse_damage_production_inward_schema.php
-     php database/migrations/create_warehouse_catalog_attribute_tables.php
-     php database/migrations/add_catalog_and_supplier_document_columns.php
-     php database/migrations/create_warehouse_qr_codes_table.php
-     php database/migrations/add_warehouse_stock_price_edit_permission.php
+     php database/migrations/sync_all_schema_columns.php
      ```
-   - Hostinger Git deployment updates application files, but does not update the production database. After deploying a release that adds a migration, run that migration against the Hostinger database using Hostinger's PHP terminal/SSH before using the affected feature. Then assign any new permissions to the intended roles/staff in the application.
+   - Other files in `database/migrations/` are incremental upgrades. Back up the database and run only migrations required for the version being deployed. Do not import `schema.sql` over a database containing production data; it drops and recreates tables.
 
 4. Launch Application:
    - Navigate to: **[http://localhost/grm-inventory/](http://localhost/grm-inventory/)**
+
+---
+
+## Hostinger Deployment (GitHub)
+
+This repository is a PHP application with its front controller under `public/` and a root `index.php`/`.htaccess` that route the website. Deploy the **whole repository** into the website's document root (normally `public_html`), keeping the project folders together. Do not deploy only the `public/` folder.
+
+### 1. Check hosting requirements
+
+- Use Hostinger Web/Cloud hosting with PHP 8.1+ and MySQL/MariaDB support.
+- In hPanel, select a supported PHP version and enable `pdo_mysql`, `curl`, `mbstring`, `openssl`, and `fileinfo`.
+- Connect the domain and enable its SSL certificate before setting `APP_URL`.
+- The desktop `printer_service/` helper is for a local Windows receipt printer; it is not needed to serve the PHP website.
+
+### 2. Connect Hostinger Git deployment
+
+1. In hPanel, open the website's **Git** page and create/connect a repository.
+2. Select the GitHub repository `Thoufick123/GRM_INVENTO`, branch `main`, and the directory that is the domain's document root (usually `public_html`). Authorize access if the GitHub repository is private.
+3. Confirm deployment places root files (`index.php`, `.htaccess`, `app/`, `config/`, and `public/`) directly in that directory, not inside an extra nested project folder.
+4. Enable Hostinger's **Auto Deployment** / push webhook for the same branch. Future pushes to `main` will deploy application files. A push does **not** create or migrate database tables or update `.env`.
+5. After the first deployment, visit the domain over HTTPS and confirm the login page loads.
+
+### 3. Create and configure the Hostinger database
+
+1. In hPanel, open **Databases → Management** (the menu wording may vary by plan).
+2. Create a MySQL database and database user, then grant the user privileges on that database.
+3. Record the exact database name, username, hostname, and port shown by Hostinger. Hostinger may prefix the database and username with the account name; use the complete values. Use the displayed hostname—often `localhost` for a database on the same hosting account—and displayed port, usually `3306`.
+4. Create `.env` in the repository root on the server by copying `.env.example`. Fill in:
+
+   ```env
+   APP_ENV=production
+   APP_URL=https://your-real-domain.example
+   APP_TIMEZONE=Asia/Kolkata
+   APP_DEBUG=false
+
+   DB_HOST=the-hostname-from-hPanel
+   DB_PORT=the-port-from-hPanel
+   DB_DATABASE=the-full-database-name-from-hPanel
+   DB_USERNAME=the-full-database-user-from-hPanel
+   DB_PASSWORD=the-database-user-password
+   ```
+
+   Keep `.env` out of GitHub. It is ignored by `.gitignore`; `.env.example` contains placeholders only. Do not paste database credentials into chat, source code, or a GitHub commit.
+
+### 4. Initialize the database
+
+1. Make sure the Hostinger database is **empty**. In hPanel's phpMyAdmin, select it and import `database/schema.sql`, then import `database/seed.sql`.
+2. `schema.sql` drops and recreates tables, so never import it into a database with data you need to keep. `seed.sql` inserts initial/sample records; change the seeded administrator password immediately after the first login.
+3. If Hostinger provides SSH/Terminal, run the permission seeder and schema sync from the repository root:
+
+   ```sh
+   php database/seed_permissions.php
+   php database/migrations/sync_all_schema_columns.php
+   ```
+
+4. Apply any additional migration files required by the app version, once, after taking a database backup. PHP migrations can be run from SSH/Terminal; `.sql` migration files can be imported with phpMyAdmin. Do not rerun historical migrations blindly—some alter enum definitions or remove obsolete columns.
+
+### 5. Finish deployment and verify
+
+- Ensure `.env` is in the repository root (the same level as `config/`) and is not publicly downloadable. The root `.htaccess` blocks environment files and private source directories.
+- Ensure `storage/logs/`, `storage/backups/`, and `public/uploads/` are writable by PHP using the least-permissive hosting permissions that work (typically `755` or `775`, not `777`).
+- Sign in with the seeded administrator account only if you imported the seed data, change its password, and create unique user accounts for staff.
+- Test login/logout, inventory reads, a test inward/sale, uploads, and invoice printing. Check Hostinger's PHP error log if the app displays a server error; keep `APP_DEBUG=false` in production.
+- Configure Hostinger's scheduled task/cron only if you use automated backups or other scheduled jobs. Review `cron/backup.php` and set its mail credentials before enabling it.
+
+### 6. Deploy updates
+
+Push application changes to the connected branch (normally `main`) to trigger Hostinger Auto Deployment. Back up the production database before releases with migrations, run the required migration in Hostinger Terminal/phpMyAdmin, and then verify the site. Git deployment transfers files only; it does not transfer local database records or local `.env` values.
 
 ---
 
