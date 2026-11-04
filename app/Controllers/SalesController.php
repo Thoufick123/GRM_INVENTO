@@ -110,13 +110,26 @@ class SalesController {
             return null;
         }
 
-        return Database::fetchOne(
+        $damage = Database::fetchOne(
             "SELECT damage_number
              FROM warehouse_damages
              WHERE tag_code = ? OR damage_number = ?
              ORDER BY id DESC
              LIMIT 1",
             [$tag, $tag]
+        );
+        if ($damage) {
+            return $damage;
+        }
+
+        return Database::fetchOne(
+            "SELECT pb.batch_number AS damage_number
+             FROM production_batch_items pbi
+             JOIN production_batches pb ON pb.id = pbi.production_batch_id
+             WHERE FIND_IN_SET(?, REPLACE(UPPER(COALESCE(pbi.damaged_qr_codes, '')), ' ', '')) > 0
+             ORDER BY pbi.id DESC
+             LIMIT 1",
+            [$tag]
         );
     }
 
@@ -477,6 +490,7 @@ class SalesController {
             static fn(array $variant): int => (int)($variant['id'] ?? 0),
             $variants
         ))));
+        $damagedTagsByVariant = [];
         if ($variantIds) {
             $variantPlaceholders = implode(',', array_fill(0, count($variantIds), '?'));
             $warehouseDamageTags = Database::fetchAll(
@@ -488,9 +502,28 @@ class SalesController {
             );
             foreach ($warehouseDamageTags as $damageTag) {
                 $vid = (int)$damageTag['variant_id'];
-                $tag = strtoupper(trim((string)$damageTag['tag_code']));
-                if ($tag !== '') {
-                    $variantTagsMap[$vid][] = $tag;
+                foreach (explode(',', (string)$damageTag['tag_code']) as $tag) {
+                    $tag = strtoupper(trim($tag));
+                    if ($tag !== '') {
+                        $damagedTagsByVariant[$vid][$tag] = true;
+                    }
+                }
+            }
+
+            $inwardDamageTags = Database::fetchAll(
+                "SELECT pbi.variant_id, pbi.damaged_qr_codes
+                 FROM production_batch_items pbi
+                 WHERE pbi.variant_id IN ({$variantPlaceholders})
+                   AND pbi.damaged_qr_codes IS NOT NULL AND pbi.damaged_qr_codes != ''",
+                $variantIds
+            );
+            foreach ($inwardDamageTags as $damageTag) {
+                $vid = (int)$damageTag['variant_id'];
+                foreach (explode(',', (string)$damageTag['damaged_qr_codes']) as $tag) {
+                    $tag = strtoupper(trim($tag));
+                    if ($tag !== '') {
+                        $damagedTagsByVariant[$vid][$tag] = true;
+                    }
                 }
             }
         }
@@ -498,7 +531,10 @@ class SalesController {
         foreach ($variants as &$v) {
             $vid = (int)$v['id'];
             $pId = (int)($v['product_id'] ?? 0);
-            $tagsList = array_values(array_unique($variantTagsMap[$vid] ?? []));
+            $tagsList = array_values(array_diff(
+                array_unique($variantTagsMap[$vid] ?? []),
+                array_keys($damagedTagsByVariant[$vid] ?? [])
+            ));
 
             // Dynamic Prefix from category/subcategory/sub-subcategory initials (e.g. Girls + Tops -> GT)
             $c1 = !empty($v['category_name']) ? trim($v['category_name']) : (!empty($v['category_code']) ? trim($v['category_code']) : '');

@@ -4814,6 +4814,36 @@ class WarehouseController {
         Response::redirect(url('warehouse/purchases/receive/' . $poId), 'info', 'Invoice viewed.');
     }
 
+    private function findWarehouseDamageTagRecord(string $tag): ?array {
+        $tag = strtoupper(trim($tag));
+        if ($tag === '') {
+            return null;
+        }
+
+        $damage = Database::fetchOne(
+            "SELECT damage_number
+             FROM warehouse_damages
+             WHERE FIND_IN_SET(?, REPLACE(UPPER(COALESCE(tag_code, '')), ' ', '')) > 0
+                OR UPPER(TRIM(COALESCE(damage_number, ''))) = ?
+             ORDER BY id DESC
+             LIMIT 1",
+            [$tag, $tag]
+        );
+        if ($damage) {
+            return $damage;
+        }
+
+        return Database::fetchOne(
+            "SELECT pb.batch_number AS damage_number
+             FROM production_batch_items pbi
+             JOIN production_batches pb ON pb.id = pbi.production_batch_id
+             WHERE FIND_IN_SET(?, REPLACE(UPPER(COALESCE(pbi.damaged_qr_codes, '')), ' ', '')) > 0
+             ORDER BY pbi.id DESC
+             LIMIT 1",
+            [$tag]
+        );
+    }
+
     public function ajaxScanPurchaseQr(): void {
         $isAdjustmentScan = ($_REQUEST['purpose'] ?? '') === 'stock_adjustment';
         $hasScanPermission = $isAdjustmentScan
@@ -4874,6 +4904,17 @@ class WarehouseController {
         }
 
         $candidateCodes = array_values(array_unique(array_filter($candidateCodes)));
+        if (!$isAdjustmentScan) {
+            foreach (array_unique(array_merge([$extractedTag], $candidateCodes)) as $tagToCheck) {
+                if ($this->findWarehouseDamageTagRecord((string)$tagToCheck)) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'This product is in the Warehouse Damage module and cannot be scanned here.'
+                    ]);
+                    exit;
+                }
+            }
+        }
         $variant = null;
 
         $baseVariantSql = "
@@ -6284,6 +6325,12 @@ class WarehouseController {
                     if (empty($stag) || strlen($stag) < 3) continue;
                     $stagUpper = strtoupper($stag);
 
+                    if ($this->findWarehouseDamageTagRecord($stagUpper)) {
+                        Session::flash('error', "Cannot save: Piece Tag '{$stagUpper}' belongs to the Warehouse Damage module and cannot be allocated.");
+                        Response::redirect(url('warehouse/allocation/create'));
+                        return;
+                    }
+
                     if (isset($seenInSubmission[$stagUpper])) {
                         $vCheck = Database::fetchOne(
                             "SELECT pv.id, pv.qr_type, pv.pack_quantity,
@@ -6821,6 +6868,16 @@ class WarehouseController {
         }
 
         $candidateCodes = array_values(array_unique(array_filter($candidateCodes)));
+
+        foreach (array_unique(array_merge([$extractedTag], $candidateCodes)) as $tagToCheck) {
+            if ($this->findWarehouseDamageTagRecord((string)$tagToCheck)) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'This product is in the Warehouse Damage module and cannot be scanned or allocated.'
+                ]);
+                exit;
+            }
+        }
 
         // Guardrail: Check if this piece tag or candidate code is already allocated in ANY active/dispatched/delivered allocation
         foreach ($candidateCodes as $codeToCheck) {

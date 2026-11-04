@@ -869,6 +869,21 @@ class ShopService {
             return $warehouseDamage;
         }
 
+        $inwardDamage = Database::fetchOne(
+            "SELECT pb.batch_number AS damage_number, pbi.id, pbi.damaged_qr_codes AS tag_code
+             FROM production_batch_items pbi
+             JOIN production_batches pb ON pb.id = pbi.production_batch_id
+             WHERE pbi.variant_id = ?
+               AND FIND_IN_SET(?, REPLACE(UPPER(COALESCE(pbi.damaged_qr_codes, '')), ' ', '')) > 0
+             ORDER BY pbi.id DESC
+             LIMIT 1",
+            [$variantId, $normalizedTag]
+        );
+        if ($inwardDamage) {
+            $inwardDamage['damage_source'] = 'WAREHOUSE';
+            return $inwardDamage;
+        }
+
         $damageRecords = Database::fetchAll(
             "SELECT id, damage_number, tag_code
              FROM shop_damages
