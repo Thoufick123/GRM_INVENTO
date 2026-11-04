@@ -347,6 +347,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let query = (code || scanInput.value || '').trim();
         if (!query) return;
 
+        clearTimeout(searchDebounceTimer);
         hideLiveSearch();
         scanInput.value = '';
         scanInput.focus();
@@ -369,6 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Add or increment in queue
                     addItemToQueue(v);
+                    hideLiveSearch();
 
                     scanFeedback.classList.remove('alert-info', 'alert-danger');
                     scanFeedback.classList.add('alert-success');
@@ -615,6 +617,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch('<?= url("api/warehouse/damage/lookup-scan") ?>?code=' + encodeURIComponent(val) + '&warehouse_id=' + warehouseId)
                 .then(res => res.json())
                 .then(data => {
+                    if (scanInput.value.trim() !== val) return;
                     if (data.matches && data.matches.length > 0) {
                         renderLiveSearch(data.matches, val);
                     } else if (data.success && data.variant) {
