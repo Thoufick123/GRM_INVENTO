@@ -2979,6 +2979,14 @@ class WarehouseController {
 
         $candidateCodes = array_values(array_unique(array_filter($candidateCodes)));
 
+        if ($this->findWarehouseDamageTagRecord((string)$extractedTag)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'This QR code is already recorded as damaged and is not available in warehouse stock.'
+            ]);
+            exit;
+        }
+
         foreach (array_unique(array_merge([$extractedTag], $candidateCodes)) as $tagToCheck) {
             $channelOrShopDamage = $this->findChannelOrShopDamageTagRecord((string)$tagToCheck);
             if ($channelOrShopDamage) {
@@ -3470,7 +3478,56 @@ class WarehouseController {
             exit;
         }
 
+        $scanVariantType = Database::fetchOne(
+            "SELECT GREATEST(COALESCE(pv.is_complementary, 0), COALESCE(p.is_complementary, 0)) as is_complementary,
+                    UPPER(COALESCE(wc.category_type, 'NORMAL')) as category_type,
+                    pv.qr_type
+             FROM product_variants pv
+             JOIN products p ON p.id = pv.product_id
+             LEFT JOIN warehouse_categories wc ON wc.id = p.warehouse_category_id
+             WHERE pv.id = ?",
+            [(int)$variant['id']]
+        );
+        $scanCategoryType = strtoupper((string)($scanVariantType['category_type'] ?? 'NORMAL'));
+        $isSeriesOrComp = $scanCategoryType === 'SERIES'
+            || $scanCategoryType === 'COMPLEMENTARY'
+            || strtoupper((string)($scanVariantType['qr_type'] ?? '')) === 'SERIES_BATCH'
+            || !empty($scanVariantType['is_complementary']);
+        $isCatalogLookup = strcasecmp(trim((string)$extractedTag), trim((string)($variant['sku'] ?? ''))) === 0
+            || strcasecmp(trim((string)$extractedTag), trim((string)($variant['product_code'] ?? ''))) === 0;
+
+        if ($isSeriesOrComp && !$isCatalogLookup) {
+            $registeredPackQr = Database::fetchOne(
+                "SELECT id
+                 FROM warehouse_qr_codes
+                 WHERE UPPER(qr_code) = UPPER(?)
+                   AND variant_id = ?
+                   AND inwarded_at IS NOT NULL
+                   AND (? <= 0 OR warehouse_id = ?)
+                 LIMIT 1",
+                [$extractedTag, (int)$variant['id'], $warehouseId, $warehouseId]
+            );
+            if (!$registeredPackQr) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'This Series/Complementary QR code is not in available stock in the selected warehouse.'
+                ]);
+                exit;
+            }
+        }
+
         if (!empty($extractedTag)) {
+            if (!$isCatalogLookup) {
+                $adjustmentUsage = StockAdjustment::findQrCodeUsage($extractedTag);
+                if ($adjustmentUsage) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => "QR code '" . htmlspecialchars($extractedTag, ENT_QUOTES, 'UTF-8') . "' is not in available stock because it is recorded in stock adjustment #" . htmlspecialchars((string)$adjustmentUsage['adjustment_number'], ENT_QUOTES, 'UTF-8') . '.'
+                    ]);
+                    exit;
+                }
+            }
+
             $allocatedTag = $this->findAllocatedWarehouseTag($extractedTag);
             if ($allocatedTag) {
                 echo json_encode([
@@ -3487,6 +3544,17 @@ class WarehouseController {
                     'message' => ((int)$soldTag['variant_id'] !== (int)$variant['id'] ? 'This QR tag belongs to a different product. ' : '') . "QR tag '" . htmlspecialchars($extractedTag, ENT_QUOTES, 'UTF-8') . "' was already sold in Direct Purchase #" . htmlspecialchars($soldTag['po_number'], ENT_QUOTES, 'UTF-8') . " (" . htmlspecialchars($soldTag['status'], ENT_QUOTES, 'UTF-8') . ") and cannot be damaged from warehouse stock."
                 ]);
                 exit;
+            }
+
+            if (!$isCatalogLookup) {
+                $soldSalesTag = $this->findSoldSalesQrTag($extractedTag);
+                if ($soldSalesTag) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => "QR tag '" . htmlspecialchars($extractedTag, ENT_QUOTES, 'UTF-8') . "' was already sold on invoice #" . htmlspecialchars($soldSalesTag['invoice_number'], ENT_QUOTES, 'UTF-8') . ' and is not in available warehouse stock.'
+                    ]);
+                    exit;
+                }
             }
 
             $outwardTag = $this->findDispatchedWhatsappTag($extractedTag, $warehouseId);
@@ -6715,12 +6783,13 @@ class WarehouseController {
         ]);
     }
 
-    private function generateVariantQrPieces(array $variant, int $count, ?int $warehouseId = null): array {
+    private function generateVariantQrPieces(array $variant, int $count, ?int $warehouseId = null, bool $includeSynthetic = true): array {
         if ($count <= 0) return [];
 
         $sku = $variant['sku'] ?? 'SKU';
         $pName = $variant['product_name'] ?? '';
-        $isSeries = (($variant['qr_type'] ?? '') === 'SERIES_BATCH');
+        $isSeries = in_array(strtoupper((string)($variant['qr_type'] ?? '')), ['SERIES', 'SERIES_BATCH'], true)
+            || strtoupper((string)($variant['category_type'] ?? '')) === 'SERIES';
         $isComp = (!empty($variant['is_complementary']) || !empty($variant['prod_is_comp']));
         $removedQrCodes = StockAdjustment::getRemovedQrCodes((int)($variant['id'] ?? 0), $warehouseId);
         $removedQrCodeSet = array_fill_keys($removedQrCodes, true);
@@ -6837,11 +6906,38 @@ class WarehouseController {
                     }
                 }
             }
+
+            if ($warehouseId !== null) {
+                $registeredQrRows = Database::fetchAll(
+                    "SELECT qr_code
+                     FROM warehouse_qr_codes
+                     WHERE variant_id = ? AND warehouse_id = ? AND inwarded_at IS NOT NULL
+                     ORDER BY id ASC",
+                    [$variantId, $warehouseId]
+                );
+                foreach ($registeredQrRows as $qrRow) {
+                    if (count($pieces) >= $count) break;
+                    $code = strtoupper(trim((string)($qrRow['qr_code'] ?? '')));
+                    if ($code !== '' && !isset($unavailableQrCodes[$code]) && !isset($seenProductionCodes[$code])) {
+                        $seenProductionCodes[$code] = true;
+                        $pieces[] = [
+                            'piece_no'      => count($pieces) + 1,
+                            'qr_code'       => $code,
+                            'sku'           => $sku,
+                            'size'          => $variant['size_name'] ?? 'Free',
+                            'color'          => $variant['color_name'] ?? '',
+                            'product'        => $pName,
+                            'mrp'            => (float)($variant['mrp'] ?? 0),
+                            'selling_price'  => (float)($variant['selling_price'] ?? 0),
+                        ];
+                    }
+                }
+            }
         }
 
         // Fill remaining with sequence if needed
         $i = 1;
-        while (count($pieces) < $count && $i <= 500) {
+        while ($includeSynthetic && count($pieces) < $count && $i <= 500) {
             $code = $prefix . sprintf("%02d", (int)$m) . $y . sprintf("%02d", $i);
             
             // Exclude QR codes that are already allocated or removed from stock.
@@ -6879,6 +6975,14 @@ class WarehouseController {
 
         if (empty($rawCode)) {
             echo json_encode(['success' => false, 'message' => 'No scan code or SKU provided.']);
+            exit;
+        }
+        if ($warehouseId <= 0) {
+            echo json_encode([
+                'success' => false,
+                'is_no_stock' => true,
+                'message' => 'Select a source warehouse before scanning a QR code.'
+            ]);
             exit;
         }
 
@@ -7656,36 +7760,72 @@ class WarehouseController {
             exit;
         }
 
-        // Fetch/generate piece QR items for this variant
-        $qrPieces = $this->generateVariantQrPieces($variant, (int)$availableStock, $warehouseId > 0 ? $warehouseId : null);
+        $categoryType = strtoupper(trim((string)($variant['category_type'] ?? 'NORMAL')));
+        $isSeries = $categoryType === 'SERIES' || strtoupper((string)($variant['qr_type'] ?? '')) === 'SERIES_BATCH';
+        $isComplementary = $categoryType === 'COMPLEMENTARY' || !empty($variant['is_complementary']);
+        $isPackProduct = $isSeries || $isComplementary;
+        $isCatalogLookup = strcasecmp(trim((string)$extractedTag), trim((string)($variant['sku'] ?? ''))) === 0
+            || strcasecmp(trim((string)$extractedTag), trim((string)($variant['product_code'] ?? ''))) === 0
+            || strcasecmp(trim((string)$extractedTag), trim((string)($variant['qr_code_prefix'] ?? ''))) === 0;
+
+        $registeredStockQr = null;
+        if (!$isCatalogLookup) {
+            $registeredStockQr = Database::fetchOne(
+                "SELECT id
+                 FROM warehouse_qr_codes
+                 WHERE UPPER(qr_code) = UPPER(?)
+                   AND variant_id = ?
+                   AND warehouse_id = ?
+                   AND inwarded_at IS NOT NULL
+                 LIMIT 1",
+                [$extractedTag, (int)$variant['id'], $warehouseId]
+            );
+            if (!$registeredStockQr) {
+                $registeredStockQr = Database::fetchOne(
+                    "SELECT pbi.id
+                     FROM production_batch_items pbi
+                     JOIN production_batches pb ON pb.id = pbi.production_batch_id
+                     LEFT JOIN production_outwards po ON po.production_batch_id = pb.id
+                     WHERE pbi.variant_id = ?
+                       AND pb.status IN ('RECEIVED', 'DISPATCHED')
+                       AND FIND_IN_SET(UPPER(?), REPLACE(UPPER(COALESCE(pbi.received_qr_codes, '')), ' ', '')) > 0
+                       AND COALESCE(po.warehouse_id, pb.destination_warehouse_id) = ?
+                     LIMIT 1",
+                    [(int)$variant['id'], $extractedTag, $warehouseId]
+                );
+            }
+        }
+
+        // Only inwarded and unallocated QR codes count as scannable stock.
+        $qrPieces = $this->generateVariantQrPieces(
+            $variant,
+            (int)$availableStock,
+            $warehouseId,
+            false
+        );
 
         // Ensure scanned tag is present in piece list if valid format
         $tagExistsInPieces = false;
         foreach ($qrPieces as $qp) {
-            if ($qp['qr_code'] === $extractedTag) {
+            if (strcasecmp(trim((string)$qp['qr_code']), trim((string)$extractedTag)) === 0) {
                 $tagExistsInPieces = true;
                 break;
             }
         }
 
-        if (!$tagExistsInPieces && !empty($extractedTag) && $extractedTag !== $variant['sku']) {
-            array_unshift($qrPieces, [
-                'piece_no'      => 1,
-                'qr_code'       => $extractedTag,
-                'sku'           => $variant['sku'],
-                'size'          => $variant['size_name'] ?? 'Free',
-                'color'         => $variant['color_name'] ?? '',
-                'product'       => $variant['product_name'],
-                'mrp'           => (float)($variant['mrp'] ?? 0),
-                'selling_price' => (float)($variant['selling_price'] ?? 0),
+        if (!$isCatalogLookup && !$registeredStockQr && !$tagExistsInPieces) {
+            echo json_encode([
+                'success' => false,
+                'is_no_stock' => true,
+                'message' => $isPackProduct
+                    ? 'This Series/Complementary QR code is not in available stock in the selected warehouse.'
+                    : 'This QR code is not in available stock in the selected warehouse.'
             ]);
+            exit;
         }
 
         $catHierarchy = trim(($variant['category_name'] ?? '') . ' > ' . ($variant['subcategory_name'] ?? '') . ($variant['sub_subcategory_name'] ? ' > ' . $variant['sub_subcategory_name'] : ''), ' >');
 
-        $categoryType = strtoupper(trim((string)($variant['category_type'] ?? 'NORMAL')));
-        $isSeries = ($categoryType === 'SERIES' || strtoupper($variant['qr_type'] ?? '') === 'SERIES_BATCH');
-        $isComplementary = ($categoryType === 'COMPLEMENTARY');
         $packQty = (int)(!empty($variant['pack_quantity']) ? $variant['pack_quantity'] : ($isSeries || $isComplementary ? $availableStock : 1));
         if ($packQty <= 0) $packQty = 1;
         $scanQty = ($isSeries || $isComplementary) ? (int)(!empty($parsedSeriesQty) ? $parsedSeriesQty : min($packQty, (int)$availableStock)) : 1;
