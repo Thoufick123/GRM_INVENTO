@@ -272,24 +272,30 @@ $canDeleteCatalog = hasPermission('wh_catalog', 'delete');
 <!-- MODAL: UNIFIED ADD CATEGORY HIERARCHY & PRE-SET ATTRIBUTES -->
 <div class="modal fade" id="modalUnifiedCategory" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog category-hierarchy-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg rounded-3">
-            <div class="modal-header bg-primary text-white py-3 px-4">
-                <div>
-                    <h5 class="modal-title fw-bold mb-0 text-white">
-                        <i class="bi bi-diagram-3-fill me-2"></i>Create Category Hierarchy &amp; Pre-set Attributes
-                    </h5>
-                    <small class="text-white-50">Main Category &rsaquo; Sub Category &rsaquo; Sub-Sub Category &rsaquo; Attributes</small>
+        <div class="modal-content border-0 shadow-lg rounded-3 overflow-hidden">
+            <div class="modal-header bg-dark text-white py-3 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="item-icon-badge" style="background:#4f46e5;color:#fff;width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-diagram-3-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0 text-white">
+                            Create Category Hierarchy &amp; Pre-set Attributes
+                        </h5>
+                        <small class="text-white-50">Main Category &rsaquo; Sub Category &rsaquo; Sub-Sub Category &rsaquo; Attributes</small>
+                    </div>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form id="formUnifiedCategory" onsubmit="submitUnifiedCategoryForm(event)">
-                <div class="modal-body p-4">
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <span class="badge bg-primary rounded-pill px-3 py-1">Step 1</span>
-                            <h6 class="fw-bold mb-0 text-dark">Category Hierarchy Flow</h6>
-                        </div>
-                        <div class="row g-3 p-3 bg-light rounded-3 border category-hierarchy-row">
+                <div class="modal-body p-4 bg-light">
+                    <div class="card border-0 shadow-xs rounded-3 bg-white mb-3">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                                <span class="badge rounded-circle bg-primary text-white" style="width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:0.7rem;">1</span>
+                                <h6 class="fw-bold mb-0 text-dark">Category Hierarchy Flow</h6>
+                            </div>
+                            <div class="row g-3 category-hierarchy-row">
                             <!-- 1. MAIN CATEGORY -->
                             <div class="col-md-4">
                                 <div class="d-flex align-items-center justify-content-between mb-1">
@@ -373,35 +379,39 @@ $canDeleteCatalog = hasPermission('wh_catalog', 'delete');
                                 </div>
                                 <div class="form-text text-muted" id="unifiedSubSubcatHelpText" style="font-size:.72rem;">Belongs strictly to selected subcategory</div>
                             </div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-success rounded-pill px-3 py-1">Step 2</span>
-                                <h6 class="fw-bold mb-0 text-dark">Pre-set Attributes (Scoped Specifications)</h6>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addUnifiedAttributeRow()">
-                                <i class="bi bi-plus-lg me-1"></i> Add Attribute
-                            </button>
-                        </div>
-                        <p class="text-muted small mb-2">Configure specifications for this category hierarchy.</p>
-                        <div class="table-responsive border rounded-2">
-                            <table class="table table-sm table-bordered align-middle mb-0" id="unifiedAttributesTable">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="min-width:180px;">Attribute Name <span class="text-danger">*</span></th>
-                                        <th style="min-width:220px;">Options</th>
-                                        <th style="width:50px;" class="text-center"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="unifiedAttributesTableBody"></tbody>
-                            </table>
+                    </div>
+                    </div>
+                    <div class="card border-0 shadow-xs rounded-3 bg-white">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge rounded-circle bg-warning text-dark" style="width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:0.7rem;">2</span>
+                                    <h6 class="fw-bold mb-0 text-dark">Pre-set Attributes (Scoped Specifications)</h6>
+                                    <span class="badge bg-warning-subtle text-dark border border-warning rounded-pill" id="unifiedAttrCountBadge">0</span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-warning py-0.5 px-2 fw-semibold" onclick="addUnifiedAttributeRow()">
+                                    <i class="bi bi-plus-lg me-1"></i> Add Attribute
+                                </button>
+                            </div>
+                            <p class="text-muted small mb-2" style="font-size:0.78rem;">Configure specifications for this category hierarchy.</p>
+                            <div class="table-responsive border rounded-2">
+                                <table class="table table-sm table-bordered align-middle mb-0" id="unifiedAttributesTable">
+                                    <thead class="table-light" style="font-size:0.75rem;">
+                                        <tr>
+                                            <th style="min-width:200px;">Attribute Name <span class="text-danger">*</span></th>
+                                            <th style="min-width:220px;">Options</th>
+                                            <th style="width:50px;" class="text-center"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="unifiedAttributesTableBody" style="font-size:0.82rem;"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer bg-light py-2 px-4 d-flex justify-content-between align-items-center">
-                    <span class="text-muted small"><i class="bi bi-info-circle me-1 text-primary"></i>Saved categories immediately display in the list.</span>
+                    <span class="text-muted small"><i class="bi bi-info-circle me-1 text-primary"></i>Configure the hierarchy and its specifications together.</span>
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary fw-semibold px-4 shadow-sm" id="btnSubmitUnifiedCat">
@@ -1927,9 +1937,16 @@ function addUnifiedAttributeRow(attr = null) {
     tr.innerHTML = `
         <td><input type="text" class="form-control form-control-sm ua-name fw-semibold text-uppercase" value="${esc(a.attr_name)}" placeholder="e.g. Size, Fabric, Collar" oninput="this.value=this.value.toUpperCase()" required></td>
         <td><input type="text" class="form-control form-control-sm ua-opts text-uppercase" value="${esc(a.attr_options || '')}" placeholder="e.g. S, M, L, XL or Red, Blue" oninput="this.value=this.value.toUpperCase()"></td>
-        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+        <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="this.closest('tr').remove(); updateUnifiedAttrBadge()"><i class="bi bi-trash"></i></button></td>
     `;
     tb.appendChild(tr);
+    updateUnifiedAttrBadge();
+}
+
+function updateUnifiedAttrBadge() {
+    const badge = document.getElementById('unifiedAttrCountBadge');
+    const rows = document.querySelectorAll('#unifiedAttributesTableBody tr.ua-row').length;
+    if (badge) badge.textContent = rows;
 }
 
 function submitUnifiedCategoryForm(e) {
